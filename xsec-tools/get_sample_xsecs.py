@@ -3,6 +3,7 @@
 import sys,os,re
 import argparse
 import cPickle as pickle
+import json
 from nesteddict import nesteddict as ndict
 
 """
@@ -29,51 +30,54 @@ args = parser.parse_args()
 sampleDict = ndict()
 keys = ndict()
 with open("ci_xsec_data.pkl","wb") as pkl:
-    with open(args.infile) as f:
-        # data = f.read()
-        for line in f:
-            if args.debug:
-                print(line)
-                pass
-            splitline = filter(None,re.split('.log|:|=|\n|\+\-| ',line))
-            if args.debug:
-                print(splitline,len(splitline))
-                pass
-
-            sample = splitline[0].split('_')
-            main = sample[1]
-            mass = sample[2]
-            lval = sample[4][:5]
-            inte = sample[4][8:11]
-            heli = sample[4][-2:]
-
-            sample = sampleDict[main]
-            if "CI" in main:
-                sample =sample[mass][lval][inte][heli]
-            else:
-                sample = sample[mass]
-            if (sample.keys()):
-                if splitline[1] == "maxCut":
-                    sample[splitline[1]] = float(splitline[2])
+    with open("ci_xsec_data.json","w") as js:
+        with open(args.infile) as f:
+            # data = f.read()
+            for line in f:
+                if args.debug:
+                    print(line)
+                    pass
+                splitline = filter(None,re.split('.log|:|=|\n|\+\-| ',line))
+                if args.debug:
+                    print(splitline,len(splitline))
+                    pass
+    
+                sample = splitline[0].split('_')
+                main = sample[1]
+                mass = sample[2]
+                lval = sample[4][:5]
+                inte = sample[4][8:11]
+                heli = sample[4][-2:]
+    
+                sample = sampleDict[main]
+                if "CI" in main:
+                    sample =sample[mass][lval][inte][heli]
                 else:
-                    if splitline[1] == "TrigReport":
-                        if (int(splitline[2]) == 1):
-                            sample["cutEfficiency"] = (int(splitline[5]),int(splitline[6]))
+                    sample = sample[mass]
+                if (sample.keys()):
+                    if splitline[1] == "maxCut":
+                        sample[splitline[1]] = float(splitline[2])
+                    else:
+                        if splitline[1] == "TrigReport":
+                            if (int(splitline[2]) == 1):
+                                sample["cutEfficiency"] = (int(splitline[5]),int(splitline[6]))
+                                pass
+                            pass
+                        elif splitline[1] == "Before":
+                            sample["xsec"] = (float(splitline[6]),float(splitline[7]),str(splitline[8]))
                             pass
                         pass
-                    elif splitline[1] == "Before":
-                        sample["xsec"] = (float(splitline[6]),float(splitline[7]),str(splitline[8]))
+                else:
+                    if args.debug:
+                        print main,mass,lval,inte,heli
+                        print(splitline)
+                        print(splitline[1],splitline[2])
                         pass
+                    sample[splitline[1]] = float(splitline[2])
                     pass
-            else:
-                if args.debug:
-                    print main,mass,lval,inte,heli
-                    print(splitline)
-                    print(splitline[1],splitline[2])
-                    pass
-                sample[splitline[1]] = float(splitline[2])
                 pass
             pass
+        json.dump(sampleDict,js)
         pass
     pickle.dump(sampleDict,pkl)
     pass
@@ -81,6 +85,13 @@ with open("ci_xsec_data.pkl","wb") as pkl:
 if args.debug:
     with open("ci_xsec_data.pkl","rb") as pkl:
         di = pickle.load(pkl)
+        for d in di:
+            print(d,di[d])
+            pass
+        pass
+
+    with open("ci_xsec_data.json","r") as js:
+        di = json.load(js)
         for d in di:
             print(d,di[d])
             pass
