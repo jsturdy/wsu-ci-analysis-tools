@@ -19,6 +19,7 @@ import ROOT as r
 
 if not args.debug:
     r.gROOT.SetBatch(r.kTRUE)
+    r.gStyle.SetOptStat(11111111)
 
 allowedValues = {
     "lamVal":    [16,22,28,34],
@@ -26,6 +27,9 @@ allowedValues = {
     "heliModel": ["LL","LR","RR"],
     "mass": [300,800,1300],
 }
+
+ciextra = None
+ciname  = None
 
 if "CI" in args.sample:
     if args.lamVal not in allowedValues["lamVal"]:
@@ -40,6 +44,13 @@ if "CI" in args.sample:
     if args.infMode == "Con" and args.heliModel == "LL":
         allowedValues["mass"].append(2000)
         pass
+    ciextra = "_Lam%dTeV%s%s"%(args.lamVal,
+                               args.infMode,
+                               args.heliModel)
+    ciname  = "_Lambda%dTeV_%s_%s"%(args.lamVal,
+                                    args.infMode,
+                                    args.heliModel)
+
     pass
 
 samples = None
@@ -53,145 +64,264 @@ else:
     histname = "diMuonMass"
 
 # CITo2Mu_M800_CUETP8M1_Lam28TeVConLL_13TeV_Pythia8_Corrected-v4_summary.root
-# raw inputs
-# scaled by xs
-# scaled by xs in specified bin(s)
+plotTypes = [
+    "raw",                     # 0
+    "xs_scaled",               # 1
+    "xs_by_eff_scaled",        # 2
+    "raw_binned",              # 3
+    "xs_scaled_binned",        # 4
+    "xs_by_eff_scaled_binned", # 5
+    # new binning+eff?
+]
 
-hout  = []
-outcan  = r.TCanvas("outcan","outcan",  800,800)
-outcan2 = r.TCanvas("outcan2","outcan2",800,800)
-outcan3 = r.TCanvas("outcan3","outcan3",800,800)
+plotLabels = [
+    "Generated events",                       # 0
+    "Gen events scaled by xs",                # 1
+    "Gen events scaled by xs*eff",            # 2
+    "Generated events, in selected mass bin", # 3
+    "Gen events scaled by xs, in selected mass bin",     # 4
+    "Gen events scaled by xs*eff, in selected mass bin", # 5
+    # new binning+eff?
+]
 
-hMin = 1e-9
-hMax = 1e10
+hout   = []
+stack  = []
+outcan = []
+legends = []
+for i,plt in enumerate(plotTypes):
+    outcan.append(r.TCanvas("outcan_%s"%(plt), "outcan_%s"%(plt), 800, 800))
+    if (i < 3):
+        legends.append(r.TLegend(0.15,0.75,0.45,0.9))
+    else:
+        legends.append(r.TLegend(0.75,0.75,0.9,0.9))
+    legends[i].SetBorderSize(0)
+    legends[i].SetLineWidth(0)
+    legends[i].SetFillColor(0)
+    legends[i].SetFillStyle(3000)
+    pass
 
+summary = r.TCanvas("summary", "summary", 1440,900)
+summary.Divide(3,2)
+
+gScaleHist = [] # for proper scaling because... ROOT
+
+hMin = [1e-9 for x in range(len(plotTypes))]
+hMax = [1e10 for x in range(len(plotTypes))]
+
+# for i,mass in enumerate(allowedValues["mass"][::-1]):
 for i,mass in enumerate(allowedValues["mass"]):
-    infname = "%s_M%s_CUETP8M1_Lam%dTeV%s%s_13TeV_Pythia8_Corrected-v4_summary.root"%(args.sample,
-                                                                                      mass,
-                                                                                      args.lamVal,
-                                                                                      args.infMode,
-                                                                                      args.heliModel)
+    sample = samples[args.sample]
+    if "CI" in args.sample:
+        sample = sample["M%d"%(mass)]["Lam%d"%(args.lamVal)][args.infMode][args.heliModel]
+        fver   = "Corrected-v4"
+        title  = "#Lambda == %d TeV, %s interference, #eta=%s"%(args.lamVal,args.infMode,args.heliModel)
+    else:
+        fver   = "Corrected-v3"
+        sample = sample["M%d"%(mass)]
+        title  = "DrellYan"
+        pass
 
-    sample = samples["Lam%d"%(args.lamVal)]["M%d"%(mass)][args.infMode][args.heliModel][args.sample]
+    infname = "%s_M%s_CUETP8M1%s_13TeV_Pythia8_%s_summary.root"%(args.sample, mass, ciextra if ciextra else "", fver)
     print(sample)
     lumi  = 1.0 # in /pb
     lfact = 1.0 # to get to human readable, i.e., -> 1/pb, 1/fb etc
-    npass  = sample["cutEfficiency"][0]
-    nfail  = sample["cutEfficiency"][0]
+    npass = sample["cutEfficiency"][0]
+    nfail = sample["cutEfficiency"][1]
     ngen  = npass+nfail
-    ncut  = sample["cutEfficiency"][0]
-    eff   = npass/ngen
+    eff   = float(npass)/float(ngen)
     xs    = sample["xsec"][0] ## in pb
     lumif = xs*lumi*lfact/ngen
     sf    = lumif*eff
     print(ngen,npass,nfail,eff,xs,lumif,sf)
 
+    hist = [] # stores the various histograms
+
+    ## for adding to the TColor
+    extra = i if (i%2==0) else -i
+
+    scaleF = [1, lumif, sf, 1, lumif, sf]
     # with r.TFile(infname,"READ") as infile:
-    hist = []
     with open("test.txt","w") as f:
         infile = r.TFile(infname,"READ")
         r.SetOwnership(infile,False)
-        hist.append(infile.Get("genfilter/%s"%(histname)))
-        r.SetOwnership(hist,False)
-        hist[0].SetLineWidth(2)
-        extra = i if (i%2==0) else -i
-        hist[0].SetLineColor(r.kViolet + extra)
+        basehist = infile.Get("genfilter/%s"%(histname))
+        r.SetOwnership(basehist,False)
 
-        # don't apply the mass cuts
-        hist.append(hist[0].Clone("m%d_full"%(mass)))
-        hist2.Scale(lumif)
-        hist[0].Scale(sf)
-        # scaled with no mass cuts
-        hist3 = hist[0].Clone("m%d_eff"%(mass))
+        for plt in range(len(plotTypes)):
+            hist.append(basehist.Clone("m%d_%s"%(mass,plotTypes[plt])))
+            r.SetOwnership(hist[plt],False)
+            hist[plt].SetLineWidth(2)
+            hist[plt].SetLineColor(r.kOrange + extra)
+            hist[plt].Scale(scaleF[plt])
+            hist[plt].SetStats(0)
+            origTitle = hist[plt].GetTitle()
+            hist[plt].SetTitle(title)
+            hist[plt].GetYaxis().SetTitle("%s / 5 GeV"%(plotLabels[plt]))
+            hist[plt].GetYaxis().SetTitleOffset(1.5)
+            hist[plt].GetYaxis().SetNdivisions(510);
+            hist[plt].GetXaxis().SetTitle("%s [GeV]"%(origTitle))
+            hist[plt].GetXaxis().SetTitleOffset(1.25)
+            hist[plt].GetXaxis().SetNdivisions(410);
 
-        if i == 0:
-            hMax = 1.25*hist[0].GetMaximum()
-        elif i == (len(allowedValues["mass"])-1):
-            hMin = 0.8*hist[0].GetMinimum(1e-8)
-
-        minBin = hist[0].FindBin(sample["minCut"])
-        maxBin = hist[0].FindBin(sample["maxCut"])
+            if i == 0:
+                gScaleHist.append(hist[plt])
+                hMax[plt] = 1.25*hist[plt].GetMaximum()
+                hMin[plt] = 0.8*hist[plt].GetMinimum(1e-8)
+                gScaleHist[plt].SetMinimum(hMin[plt])
+                gScaleHist[plt].SetMaximum(hMax[plt])
+            elif i == (len(allowedValues["mass"])-1):
+                hMin[plt] = 0.8*hist[plt].GetMinimum(1e-8)
+                gScaleHist[plt].SetMinimum(hMin[plt])
+                pass
+            pass
+        print(mass,hMin,hMax)
+        minBin = basehist.FindBin(sample["minCut"])
+        maxBin = basehist.FindBin(sample["maxCut"])
         if args.debug:
-            print(minBin,hist[0].GetBinLowEdge(minBin),hist[0].GetBinCenter(minBin),hist[0].GetBinWidth(minBin))
-            print(maxBin,hist[0].GetBinLowEdge(maxBin),hist[0].GetBinCenter(maxBin),hist[0].GetBinWidth(maxBin))
-        for bi in range(hist[0].GetNbinsX()):
-            if bi < minBin or bi > maxBin:
-                hist[0].SetBinContent(bi+1,0)
-                hist[0].SetBinError(bi+1,0)
+            print(minBin,basehist.GetBinLowEdge(minBin),basehist.GetBinCenter(minBin),basehist.GetBinWidth(minBin))
+            print(maxBin,basehist.GetBinLowEdge(maxBin),basehist.GetBinCenter(maxBin),basehist.GetBinWidth(maxBin))
+        for bi in range(basehist.GetNbinsX()):
+            if bi < minBin or bi >= maxBin:
+                for plt in [3,4,5]:
+                    hist[plt].SetBinContent(bi+1,0)
+                    hist[plt].SetBinError(bi+1,0)
+                    pass
+                pass
             pass
 
-        if hout:
-            outcan.cd()
-            hout.Add(hist)
-            hist[0].SetMinimum(hMin)
-            hist[0].SetMaximum(hMax)
-            hist[0].Draw("sames")
-
-            outcan2.cd()
-            hout2.Add(hist2)
-            hist2.SetMinimum(hMin)
-            hist2.SetMaximum(hMax)
-            hist2.Draw("sames")
+        if len(hout):
+            for plt in range(len(plotTypes)):
+                # outcan[plt].cd()
+                summary.cd(plt+1)
+                hout[plt].Add(hist[plt])
+                stack[plt].Add(hist[plt])
+                if args.debug:
+                    print("drawing sames",hist[plt])
+                hist[plt].Draw("sames")
+                legends[plt].AddEntry(hist[plt],"M%d"%(mass),"lpef")
+                r.gPad.Update()
+                # outcan[plt].Update()
+                summary.Update()
+                pass
         else:
-            outcan.cd()
-            hout = hist[0].Clone("scaledAndMerged")
-            hist[0].SetMinimum(hMin)
-            hist[0].SetMaximum(hMax)
-            hist[0].Draw("")
-
-            outcan2.cd()
-            hout2 = hist2.Clone("scaledAndMerged2")
-            r.SetOwnership(hist2,False)
-            hist2.SetMinimum(hMin)
-            hist2.SetMaximum(hMax)
-            hist2.Draw("")
+            for plt in range(len(plotTypes)):
+                # outcan[plt].cd()
+                summary.cd(plt+1)
+                hout.append(hist[plt].Clone("%s"%(plotTypes[plt])))
+                r.gStyle.SetPalette(r.kOcean)
+                stack.append(r.THStack("%s_stack"%(plotTypes[plt]),"%s"%(hist[plt].GetTitle())))
+                stack[plt].Add(hist[plt])
+                r.SetOwnership(hist[plt],False)
+                if args.debug:
+                    print("drawing first",hist[plt])
+                # hist[plt].Draw("")
+                gScaleHist[plt].Draw("")
+                # legends[plt].SetHeader(title)
+                # legends[plt].AddTitle(title)
+                legends[plt].AddEntry(gScaleHist[plt],"M%d"%(mass),"lpef")
+                legends[plt].Draw("nb")
+                r.gPad.SetLogy(r.kTRUE)
+                r.gPad.Update()
+                # outcan[plt].Update()
+                summary.Update()
+                pass
+            # if args.debug:
+            #     raw_input("Next histogram")
             pass
-        # raw_input("Next histogram")
+        # if args.debug:
+        #     raw_input("Next histogram")
         pass
     pass
 
-print hMin,hMax
-outcan.cd()
-hist[0].GetXaxis().SetRangeUser(275.,5000.)
-hist[0].SetMinimum(hMin)
-hist[0].SetMaximum(hMax)
-r.gPad.SetLogy(r.kTRUE)
-outcan.Update()
-outcan.SaveAs("%s_Lambda%dTeV_%s_%s.png"%(args.sample,args.lamVal,args.infMode,args.heliModel))
-r.gPad.SetLogx(r.kTRUE)
-outcan.Update()
-outcan.SaveAs("%s_Lambda%dTeV_%s_%s_logx.png"%(args.sample,args.lamVal,args.infMode,args.heliModel))
-hout.SetLineWidth(2)
-hout.SetLineColor(r.kRed)
-if args.debug:
-    raw_input("draw combined")
-hout.Draw("sames")
-r.gPad.SetLogx(r.kFALSE)
-outcan.Update()
-outcan.SaveAs("%s_Lambda%dTeV_%s_%s_combined.png"%(args.sample,args.lamVal,args.infMode,args.heliModel))
-r.gPad.SetLogx(r.kTRUE)
-outcan.Update()
-outcan.SaveAs("%s_Lambda%dTeV_%s_%s_combined_logx.png"%(args.sample,args.lamVal,args.infMode,args.heliModel))
+print(hMin)
+print(hMax)
+for plt in range(len(plotTypes)):
+    # outcan[plt].cd()
+    summary.cd(plt+1)
+    hist[plt].GetYaxis().SetRangeUser(hMin[plt],hMax[plt])
+    hist[plt].GetXaxis().SetRangeUser(275.,5000.)
+    # hist[plt].SetMinimum(hMin[plt])
+    # hist[plt].SetMaximum(hMax[plt])
+    r.gPad.SetLogy(r.kTRUE)
+    r.gPad.Update()
+    # outcan[plt].Update()
+    # outcan[plt].SaveAs("%s%s_%s.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
+summary.Update()
+summary.SaveAs("%s%s_summary.png"%(args.sample,ciname if ciname else ""))
 
-outcan2.cd()
-hist2.SetMinimum(hMin)
-hist2.SetMaximum(hMax)
-r.gPad.SetLogy(r.kTRUE)
-outcan2.Update()
-outcan2.SaveAs("%s_Lambda%dTeV_%s_%s_noCut.png"%(args.sample,args.lamVal,args.infMode,args.heliModel))
-r.gPad.SetLogx(r.kTRUE)
-outcan2.Update()
-outcan2.SaveAs("%s_Lambda%dTeV_%s_%s_noCut_logx.png"%(args.sample,args.lamVal,args.infMode,args.heliModel))
-hout2.SetLineWidth(2)
-hout2.SetLineColor(r.kRed)
+for plt in range(len(plotTypes)):
+    # outcan[plt].cd()
+    summary.cd(plt+1)
+    if (plt > 2):
+        gScaleHist[plt].GetXaxis().SetRangeUser(275.,5000.)
+        gScaleHist[plt].Draw("sames")
+    r.gPad.SetLogx(r.kTRUE)
+    r.gPad.Update()
+    # outcan[plt].Update()
+    # outcan[plt].SaveAs("%s%s_%s_logx.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
+summary.Update()
+summary.SaveAs("%s%s_summary_logx.png"%(args.sample,ciname if ciname else ""))
+
 if args.debug:
-    raw_input("draw combined")
-hout2.Draw("sames")
-r.gPad.SetLogx(r.kFALSE)
-outcan2.Update()
-outcan2.SaveAs("%s_Lambda%dTeV_%s_%s_combined_noCut.png"%(args.sample,args.lamVal,args.infMode,args.heliModel))
-r.gPad.SetLogx(r.kTRUE)
-outcan2.Update()
-outcan2.SaveAs("%s_Lambda%dTeV_%s_%s_combined_noCut_logx.png"%(args.sample,args.lamVal,args.infMode,args.heliModel))
+    print(stack)
+    raw_input("draw stack")
+
+for plt in range(len(plotTypes)):
+    # outcan[plt].cd()
+    summary.cd(plt+1)
+    stack[plt].Draw("pfc hist")
+    legends[plt].Draw("nb")
+    stack[plt].Draw("pfc hist")
+    r.gPad.SetLogx(r.kFALSE)
+    r.gPad.Update()
+    # outcan[plt].Update()
+    # outcan[plt].SaveAs("%s%s_%s_stack.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
+summary.Update()
+summary.SaveAs("%s%s_stack.png"%(args.sample,ciname if ciname else ""))
+
+for plt in range(len(plotTypes)):
+    # outcan[plt].cd()
+    summary.cd(plt+1)
+    if (plt > 2):
+        stack[plt].GetXaxis().SetRangeUser(275.,5000.)
+    stack[plt].Draw("pfc hist")
+    r.gPad.SetLogx(r.kTRUE)
+    r.gPad.Update()
+    # outcan[plt].Update()
+    # outcan[plt].SaveAs("%s%s_%s_stack_logx.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
+summary.Update()
+summary.SaveAs("%s%s_stack_logx.png"%(args.sample,ciname if ciname else ""))
+
+if args.debug:
+    print(hout)
+    raw_input("draw stack")
+
+for plt in range(len(plotTypes)):
+    # outcan[plt].cd()
+    summary.cd(plt+1)
+    hout[plt].GetYaxis().SetRangeUser(hMin[plt],hMax[plt])
+    hout[plt].GetXaxis().SetRangeUser(275.,5000.)
+    hout[plt].SetMinimum(hMin[plt])
+    hout[plt].SetMaximum(hMax[plt])
+    hout[plt].SetLineWidth(2)
+    hout[plt].SetLineColor(r.kRed)
+    hout[plt].Draw("")
+    r.gPad.SetLogx(r.kFALSE)
+    r.gPad.Update()
+    # outcan[plt].Update()
+    # outcan[plt].SaveAs("%s%s_%s_combined.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
+summary.Update()
+summary.SaveAs("%s%s_combined.png"%(args.sample,ciname if ciname else ""))
+
+for plt in range(len(plotTypes)):
+    # outcan[plt].cd()
+    summary.cd(plt+1)
+    r.gPad.SetLogx(r.kTRUE)
+    r.gPad.Update()
+    # outcan[plt].Update()
+    # outcan[plt].SaveAs("%s%s_%s_combined_logx.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
+summary.Update()
+summary.SaveAs("%s%s_combined_logx.png"%(args.sample,ciname if ciname else ""))
+
 if args.debug:
     raw_input("exit")
