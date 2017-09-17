@@ -42,16 +42,17 @@ with open("ci_xsec_data.pkl","wb") as pkl:
                     print(splitline,len(splitline))
                     pass
     
-                sample = splitline[0].split('_')
-                main = sample[1]
-                mass = sample[2]
-                lval = sample[4][:5]
-                inte = sample[4][8:11]
-                heli = sample[4][-2:]
+                sample  = splitline[0].split('_')
+                main    = sample[1]
+                mass    = sample[2]
+                special = sample[4].split("TeV")
     
                 sample = sampleDict[main]
                 if "CI" in main:
-                    sample =sample[mass][lval][inte][heli]
+                    lval   = special[0][3:]
+                    inte   = special[1][:-2]
+                    heli   = special[1][-2:]
+                    sample = sample[mass][lval][inte][heli]
                 else:
                     sample = sample[mass]
                 if (sample.keys()):
