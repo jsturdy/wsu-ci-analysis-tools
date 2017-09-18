@@ -6,7 +6,7 @@ import math
 
 parser = argparse.ArgumentParser()
 parser.add_argument("sample",        help="Sample to stitch together",type=str)
-parser.add_argument("--lamVal",      help="Lambda value to use",      type=int)
+parser.add_argument("--lamVal",      help="Lambda value to use",      type=str)
 parser.add_argument("--infMode",     help="Interference mode to use", type=str)
 parser.add_argument("--heliModel",   help="Heliciy model to use",     type=str)
 parser.add_argument("--rebin",       help="Rebin input histograms",   type=int)
@@ -26,7 +26,7 @@ if not args.debug:
     r.gErrorIgnoreLevel = r.kError
 
 allowedValues = {
-    "lamVal":    [16,22,28,34],
+    "lamVal":    ["1", "10", "16", "22", "28", "34", "100k"],
     "infMode":   ["Con","Des"],
     "heliModel": ["LL","LR","RR"],
     "mass": [300,800,1300],
@@ -48,10 +48,10 @@ if "CI" in args.sample:
     if args.infMode == "Con" and args.heliModel == "LL":
         allowedValues["mass"].append(2000)
         pass
-    ciextra = "_Lam%dTeV%s%s"%(args.lamVal,
+    ciextra = "_Lam%sTeV%s%s"%(args.lamVal,
                                args.infMode,
                                args.heliModel)
-    ciname  = "_Lambda%dTeV_%s_%s"%(args.lamVal,
+    ciname  = "_Lambda%sTeV_%s_%s"%(args.lamVal,
                                     args.infMode,
                                     args.heliModel)
 
@@ -119,14 +119,14 @@ for i,mass in enumerate(allowedValues["mass"]):
         print("sample",sample["M%d"%(mass)])
     if "CI" in args.sample:
         if args.debug:
-            print("M%d"%(mass),"Lam%d"%(args.lamVal),args.infMode,args.heliModel)
+            print("M%d"%(mass),"Lam%s"%(args.lamVal),args.infMode,args.heliModel)
             print("mass:key",sample["M%d"%(mass)])
-            print("lambda:key",sample["M%d"%(mass)]["Lam%d"%(args.lamVal)])
-            print("interference:key",sample["M%d"%(mass)]["Lam%d"%(args.lamVal)][args.infMode])
-            print("helicity:key",sample["M%d"%(mass)]["Lam%d"%(args.lamVal)][args.infMode][args.heliModel])
-        sample = sample["M%d"%(mass)]["Lam%d"%(args.lamVal)][args.infMode][args.heliModel]
+            print("lambda:key",sample["M%d"%(mass)]["Lam%s"%(args.lamVal)])
+            print("interference:key",sample["M%d"%(mass)]["Lam%s"%(args.lamVal)][args.infMode])
+            print("helicity:key",sample["M%d"%(mass)]["Lam%s"%(args.lamVal)][args.infMode][args.heliModel])
+        sample = sample["M%d"%(mass)]["Lam%s"%(args.lamVal)][args.infMode][args.heliModel]
         fver   = "Corrected-v4"
-        title  = "#Lambda == %d TeV, %s interference, #eta=%s"%(args.lamVal,args.infMode,args.heliModel)
+        title  = "#Lambda == %s TeV, %s interference, #eta=%s"%(args.lamVal,args.infMode,args.heliModel)
     else:
         fver   = "Corrected-v3"
         sample = sample["M%d"%(mass)]
