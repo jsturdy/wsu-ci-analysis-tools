@@ -8,6 +8,7 @@ parser.add_argument("sample",        help="Sample to stitch together",type=str)
 parser.add_argument("--lamVal",      help="Lambda value to use",      type=int)
 parser.add_argument("--infMode",     help="Interference mode to use", type=str)
 parser.add_argument("--heliModel",   help="Heliciy model to use",     type=str)
+parser.add_argument("--rebin",       help="Rebin input histograms",   type=int)
 parser.add_argument("-d", "--debug", help="debugging information",action="store_true")
 
 args = parser.parse_args()
@@ -20,6 +21,7 @@ import ROOT as r
 if not args.debug:
     r.gROOT.SetBatch(r.kTRUE)
     r.gStyle.SetOptStat(11111111)
+    r.gErrorIgnoreLevel = r.kError
 
 allowedValues = {
     "lamVal":    [16,22,28,34],
@@ -111,7 +113,15 @@ hMax = [1e10 for x in range(len(plotTypes))]
 # for i,mass in enumerate(allowedValues["mass"][::-1]):
 for i,mass in enumerate(allowedValues["mass"]):
     sample = samples[args.sample]
+    if args.debug:
+        print("sample",sample["M%d"%(mass)])
     if "CI" in args.sample:
+        if args.debug:
+            print("M%d"%(mass),"Lam%d"%(args.lamVal),args.infMode,args.heliModel)
+            print("mass:key",sample["M%d"%(mass)])
+            print("lambda:key",sample["M%d"%(mass)]["Lam%d"%(args.lamVal)])
+            print("interference:key",sample["M%d"%(mass)]["Lam%d"%(args.lamVal)][args.infMode])
+            print("helicity:key",sample["M%d"%(mass)]["Lam%d"%(args.lamVal)][args.infMode][args.heliModel])
         sample = sample["M%d"%(mass)]["Lam%d"%(args.lamVal)][args.infMode][args.heliModel]
         fver   = "Corrected-v4"
         title  = "#Lambda == %d TeV, %s interference, #eta=%s"%(args.lamVal,args.infMode,args.heliModel)
@@ -122,7 +132,8 @@ for i,mass in enumerate(allowedValues["mass"]):
         pass
 
     infname = "%s_M%s_CUETP8M1%s_13TeV_Pythia8_%s_summary.root"%(args.sample, mass, ciextra if ciextra else "", fver)
-    print(sample)
+    if args.debug:
+        print(sample)
     lumi  = 1.0 # in /pb
     lfact = 1.0 # to get to human readable, i.e., -> 1/pb, 1/fb etc
     npass = sample["cutEfficiency"][0]
@@ -145,6 +156,8 @@ for i,mass in enumerate(allowedValues["mass"]):
         infile = r.TFile(infname,"READ")
         r.SetOwnership(infile,False)
         basehist = infile.Get("genfilter/%s"%(histname))
+        if args.rebin:
+            basehist = basehist.Rebin(args.rebin)
         r.SetOwnership(basehist,False)
 
         for plt in range(len(plotTypes)):
@@ -167,28 +180,67 @@ for i,mass in enumerate(allowedValues["mass"]):
                 gScaleHist.append(hist[plt])
                 hMax[plt] = 1.25*hist[plt].GetMaximum()
                 hMin[plt] = 0.8*hist[plt].GetMinimum(1e-8)
-                gScaleHist[plt].SetMinimum(hMin[plt])
-                gScaleHist[plt].SetMaximum(hMax[plt])
+                # gScaleHist[plt].SetMinimum(hMin[plt])
+                # gScaleHist[plt].SetMaximum(hMax[plt])
             elif i == (len(allowedValues["mass"])-1):
                 hMin[plt] = 0.8*hist[plt].GetMinimum(1e-8)
-                gScaleHist[plt].SetMinimum(hMin[plt])
+                # gScaleHist[plt].SetMinimum(hMin[plt])
                 pass
             pass
+
+        ## Ensure no double counting in inclusive mass-binned samples
         print(mass,hMin,hMax)
         minBin = basehist.FindBin(sample["minCut"])
         maxBin = basehist.FindBin(sample["maxCut"])
         if args.debug:
             print(minBin,basehist.GetBinLowEdge(minBin),basehist.GetBinCenter(minBin),basehist.GetBinWidth(minBin))
             print(maxBin,basehist.GetBinLowEdge(maxBin),basehist.GetBinCenter(maxBin),basehist.GetBinWidth(maxBin))
-        for bi in range(basehist.GetNbinsX()):
+        for bi in range(basehist.GetNbinsX()+1):
             if bi < minBin or bi >= maxBin:
                 for plt in [3,4,5]:
-                    hist[plt].SetBinContent(bi+1,0)
-                    hist[plt].SetBinError(bi+1,0)
+                    # print("Zeroing bin %d"%(bi))
+                    hist[plt].SetBinContent(bi,0)
+                    hist[plt].SetBinError(bi,0)
                     pass
                 pass
             pass
+        # Zero out the over/underflow bins for certain samples
+        for plt in [3,4,5]:
+            if mass in [800,1300,2000]:
+                hist[plt].SetBinContent(0,0)
+                hist[plt].SetBinError(  0,0)
+            if mass in [300,800,1300]:
+                hist[plt].SetBinContent(hist[plt].GetNbinsX()+1,0)
+                hist[plt].SetBinError(  hist[plt].GetNbinsX()+1,0)
+            pass
+        # Verification
+        if args.debug:
+            bi = 0
+            print("%s: Bin[%d](%d,%.1f,%.1f) content %d"%(hist[3].GetName(),bi,
+                                                          hist[3].GetBinLowEdge(bi),
+                                                          hist[3].GetBinCenter(bi),
+                                                          hist[3].GetBinWidth(bi),
+                                                          hist[3].GetBinContent(bi)))
+            for bi in range(basehist.GetNbinsX()):
+                if (hist[3].GetBinContent(bi) > 0):
+                    print("%s: Bin[%d](%d,%.1f,%.1f) content %d"%(hist[3].GetName(),bi,
+                                                                  hist[3].GetBinLowEdge(bi),
+                                                                  hist[3].GetBinCenter(bi),
+                                                                  hist[3].GetBinWidth(bi),
+                                                                  hist[3].GetBinContent(bi)))
+                    pass
+                pass
+            for up in range(10):
+                bi = hist[3].GetNbinsX()+up
+                print("%s: Bin[%d](%d,%.1f,%.1f) content %d"%(hist[3].GetName(),bi,
+                                                              hist[3].GetBinLowEdge(bi),
+                                                              hist[3].GetBinCenter(bi),
+                                                              hist[3].GetBinWidth(bi),
+                                                              hist[3].GetBinContent(bi)))
+                pass
+            pass
 
+        ## Make the plots
         if len(hout):
             for plt in range(len(plotTypes)):
                 # outcan[plt].cd()
@@ -238,16 +290,17 @@ print(hMax)
 for plt in range(len(plotTypes)):
     # outcan[plt].cd()
     summary.cd(plt+1)
-    hist[plt].GetYaxis().SetRangeUser(hMin[plt],hMax[plt])
-    hist[plt].GetXaxis().SetRangeUser(275.,5000.)
-    # hist[plt].SetMinimum(hMin[plt])
-    # hist[plt].SetMaximum(hMax[plt])
+    gScaleHist[plt].GetYaxis().SetRangeUser(hMin[plt],hMax[plt])
+    gScaleHist[plt].GetXaxis().SetRangeUser(275.,5000.)
+    gScaleHist[plt].SetMinimum(hMin[plt])
+    gScaleHist[plt].SetMaximum(hMax[plt])
+    gScaleHist[plt].Draw("sames")
     r.gPad.SetLogy(r.kTRUE)
     r.gPad.Update()
     # outcan[plt].Update()
     # outcan[plt].SaveAs("%s%s_%s.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
 summary.Update()
-summary.SaveAs("%s%s_summary.png"%(args.sample,ciname if ciname else ""))
+summary.SaveAs("%s%s%s_summary.png"%(args.sample,ciname if ciname else "", "_rebin%d"%(args.rebin) if args.rebin else ""))
 
 for plt in range(len(plotTypes)):
     # outcan[plt].cd()
@@ -260,7 +313,7 @@ for plt in range(len(plotTypes)):
     # outcan[plt].Update()
     # outcan[plt].SaveAs("%s%s_%s_logx.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
 summary.Update()
-summary.SaveAs("%s%s_summary_logx.png"%(args.sample,ciname if ciname else ""))
+summary.SaveAs("%s%s%s_summary_logx.png"%(args.sample,ciname if ciname else "", "_rebin%d"%(args.rebin) if args.rebin else ""))
 
 if args.debug:
     print(stack)
@@ -269,28 +322,47 @@ if args.debug:
 for plt in range(len(plotTypes)):
     # outcan[plt].cd()
     summary.cd(plt+1)
-    stack[plt].Draw("pfc hist")
-    legends[plt].Draw("nb")
-    stack[plt].Draw("pfc hist")
     r.gPad.SetLogx(r.kFALSE)
+    stack[plt].Draw("pfc hist")
+    r.gPad.Update()
+    title = hist[plt].GetTitle()
+    print(stack[plt],stack[plt].GetXaxis(),stack[plt].GetYaxis())
+    stack[plt].SetTitle(title)
+    stack[plt].GetYaxis().SetTitle("%s / 5 GeV"%(plotLabels[plt]))
+    stack[plt].GetYaxis().SetTitleOffset(1.5)
+    stack[plt].GetYaxis().SetNdivisions(510);
+    stack[plt].GetXaxis().SetTitle("%s [GeV]"%(origTitle))
+    stack[plt].GetXaxis().SetTitleOffset(1.25)
+    stack[plt].GetXaxis().SetNdivisions(410);
+    if args.debug:
+        print(stack[plt],stack[plt].GetMinimum(),stack[plt].GetMaximum())
+    stack[plt].SetMinimum(hMin[plt])
+    # stack[plt].SetMinimum(0.8*stack[plt].GetMinimum(1e-7))
+    stack[plt].SetMaximum(1.2*stack[plt].GetMaximum())
+    stack[plt].Draw("pfc hist")
+    r.gPad.Update()
+    legends[plt].Draw("nb")
     r.gPad.Update()
     # outcan[plt].Update()
     # outcan[plt].SaveAs("%s%s_%s_stack.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
 summary.Update()
-summary.SaveAs("%s%s_stack.png"%(args.sample,ciname if ciname else ""))
+summary.SaveAs("%s%s%s_stack.png"%(args.sample,ciname if ciname else "", "_rebin%d"%(args.rebin) if args.rebin else ""))
 
 for plt in range(len(plotTypes)):
     # outcan[plt].cd()
     summary.cd(plt+1)
+    stack[plt].Draw("pfc hist")
     if (plt > 2):
         stack[plt].GetXaxis().SetRangeUser(275.,5000.)
     stack[plt].Draw("pfc hist")
     r.gPad.SetLogx(r.kTRUE)
     r.gPad.Update()
+    legends[plt].Draw("nb")
+    r.gPad.Update()
     # outcan[plt].Update()
     # outcan[plt].SaveAs("%s%s_%s_stack_logx.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
 summary.Update()
-summary.SaveAs("%s%s_stack_logx.png"%(args.sample,ciname if ciname else ""))
+summary.SaveAs("%s%s%s_stack_logx.png"%(args.sample,ciname if ciname else "", "_rebin%d"%(args.rebin) if args.rebin else ""))
 
 if args.debug:
     print(hout)
@@ -311,7 +383,7 @@ for plt in range(len(plotTypes)):
     # outcan[plt].Update()
     # outcan[plt].SaveAs("%s%s_%s_combined.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
 summary.Update()
-summary.SaveAs("%s%s_combined.png"%(args.sample,ciname if ciname else ""))
+summary.SaveAs("%s%s%s_combined.png"%(args.sample,ciname if ciname else "", "_rebin%d"%(args.rebin) if args.rebin else ""))
 
 for plt in range(len(plotTypes)):
     # outcan[plt].cd()
@@ -321,7 +393,7 @@ for plt in range(len(plotTypes)):
     # outcan[plt].Update()
     # outcan[plt].SaveAs("%s%s_%s_combined_logx.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
 summary.Update()
-summary.SaveAs("%s%s_combined_logx.png"%(args.sample,ciname if ciname else ""))
+summary.SaveAs("%s%s%s_combined_logx.png"%(args.sample,ciname if ciname else "", "_rebin%d"%(args.rebin) if args.rebin else ""))
 
 if args.debug:
     raw_input("exit")
