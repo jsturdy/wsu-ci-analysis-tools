@@ -133,6 +133,9 @@ for i,mass in enumerate(allowedValues["mass"]):
         title  = "DrellYan"
         pass
 
+    if not sample:
+        print("Sample %s%s%s has no keys in mapping"%(args.sample, mass, ciextra if ciextra else ""))
+        continue
     infname = "%s_M%s_CUETP8M1%s_13TeV_Pythia8_%s_summary.root"%(args.sample, mass, ciextra if ciextra else "", fver)
     if args.debug:
         print(sample)
@@ -156,6 +159,10 @@ for i,mass in enumerate(allowedValues["mass"]):
     # with r.TFile(infname,"READ") as infile:
     with open("test.txt","w") as f:
         infile = r.TFile(infname,"READ")
+        if not infile or infile.IsZombie() or not infile.IsOpen():
+            print("Error opening file: %s"%(infname))
+            continue
+
         r.SetOwnership(infile,False)
         basehist = infile.Get("genfilter/%s"%(histname))
         if args.rebin:
@@ -190,6 +197,7 @@ for i,mass in enumerate(allowedValues["mass"]):
             hist[plt].GetXaxis().SetTitleOffset(1.25)
             hist[plt].GetXaxis().SetNdivisions(410);
 
+            # not robust against missing the first sample
             if i == 0:
                 gScaleHist.append(hist[plt])
                 hMax[plt] = 1.25*hist[plt].GetMaximum()
@@ -296,115 +304,116 @@ for i,mass in enumerate(allowedValues["mass"]):
         pass
     pass
 
-print(hMin)
-print(hMax)
-for plt in range(len(plotTypes)):
-    # outcan[plt].cd()
-    summary.cd(plt+1)
-    gScaleHist[plt].GetYaxis().SetRangeUser(hMin[plt],hMax[plt])
-    gScaleHist[plt].GetXaxis().SetRangeUser(275.,5000.)
-    gScaleHist[plt].SetMinimum(hMin[plt])
-    gScaleHist[plt].SetMaximum(hMax[plt])
-    gScaleHist[plt].Draw("sames")
-    r.gPad.SetLogy(r.kTRUE)
-    r.gPad.Update()
-    # outcan[plt].Update()
-    # outcan[plt].SaveAs("%s%s_%s.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
-summary.Update()
-summary.SaveAs("%s%s%s_summary.png"%(args.sample,ciname if ciname else "", "_rebin%d"%(args.rebin) if args.rebin else ""))
-
-for plt in range(len(plotTypes)):
-    # outcan[plt].cd()
-    summary.cd(plt+1)
-    if (plt > 2):
+if gScaleHist:
+    print(hMin)
+    print(hMax)
+    for plt in range(len(plotTypes)):
+        # outcan[plt].cd()
+        summary.cd(plt+1)
+        gScaleHist[plt].GetYaxis().SetRangeUser(hMin[plt],hMax[plt])
         gScaleHist[plt].GetXaxis().SetRangeUser(275.,5000.)
+        gScaleHist[plt].SetMinimum(hMin[plt])
+        gScaleHist[plt].SetMaximum(hMax[plt])
         gScaleHist[plt].Draw("sames")
-    r.gPad.SetLogx(r.kTRUE)
-    r.gPad.Update()
-    # outcan[plt].Update()
-    # outcan[plt].SaveAs("%s%s_%s_logx.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
-summary.Update()
-summary.SaveAs("%s%s%s_summary_logx.png"%(args.sample,ciname if ciname else "", "_rebin%d"%(args.rebin) if args.rebin else ""))
+        r.gPad.SetLogy(r.kTRUE)
+        r.gPad.Update()
+        # outcan[plt].Update()
+        # outcan[plt].SaveAs("%s%s_%s.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
+    summary.Update()
+    summary.SaveAs("%s%s%s_summary.png"%(args.sample,ciname if ciname else "", "_rebin%d"%(args.rebin) if args.rebin else ""))
 
-if args.debug:
-    print(stack)
-    raw_input("draw stack")
+    for plt in range(len(plotTypes)):
+        # outcan[plt].cd()
+        summary.cd(plt+1)
+        if (plt > 2):
+            gScaleHist[plt].GetXaxis().SetRangeUser(275.,5000.)
+            gScaleHist[plt].Draw("sames")
+        r.gPad.SetLogx(r.kTRUE)
+        r.gPad.Update()
+        # outcan[plt].Update()
+        # outcan[plt].SaveAs("%s%s_%s_logx.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
+    summary.Update()
+    summary.SaveAs("%s%s%s_summary_logx.png"%(args.sample,ciname if ciname else "", "_rebin%d"%(args.rebin) if args.rebin else ""))
 
-for plt in range(len(plotTypes)):
-    # outcan[plt].cd()
-    summary.cd(plt+1)
-    r.gPad.SetLogx(r.kFALSE)
-    stack[plt].Draw("pfc hist")
-    r.gPad.Update()
-    title = hist[plt].GetTitle()
-    print(stack[plt],stack[plt].GetXaxis(),stack[plt].GetYaxis())
-    stack[plt].SetTitle(title)
-    stack[plt].GetYaxis().SetTitle("%s / 5 GeV"%(plotLabels[plt]))
-    stack[plt].GetYaxis().SetTitleOffset(1.5)
-    stack[plt].GetYaxis().SetNdivisions(510);
-    stack[plt].GetXaxis().SetTitle("%s [GeV]"%(origTitle))
-    stack[plt].GetXaxis().SetTitleOffset(1.25)
-    stack[plt].GetXaxis().SetNdivisions(410);
     if args.debug:
-        print(stack[plt],stack[plt].GetMinimum(),stack[plt].GetMaximum())
-    stack[plt].SetMinimum(hMin[plt])
-    # stack[plt].SetMinimum(0.8*stack[plt].GetMinimum(1e-7))
-    stack[plt].SetMaximum(1.2*stack[plt].GetMaximum())
-    stack[plt].Draw("pfc hist")
-    r.gPad.Update()
-    legends[plt].Draw("nb")
-    r.gPad.Update()
-    # outcan[plt].Update()
-    # outcan[plt].SaveAs("%s%s_%s_stack.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
-summary.Update()
-summary.SaveAs("%s%s%s_stack.png"%(args.sample,ciname if ciname else "", "_rebin%d"%(args.rebin) if args.rebin else ""))
+        print(stack)
+        raw_input("draw stack")
 
-for plt in range(len(plotTypes)):
-    # outcan[plt].cd()
-    summary.cd(plt+1)
-    stack[plt].Draw("pfc hist")
-    if (plt > 2):
-        stack[plt].GetXaxis().SetRangeUser(275.,5000.)
-    stack[plt].Draw("pfc hist")
-    r.gPad.SetLogx(r.kTRUE)
-    r.gPad.Update()
-    legends[plt].Draw("nb")
-    r.gPad.Update()
-    # outcan[plt].Update()
-    # outcan[plt].SaveAs("%s%s_%s_stack_logx.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
-summary.Update()
-summary.SaveAs("%s%s%s_stack_logx.png"%(args.sample,ciname if ciname else "", "_rebin%d"%(args.rebin) if args.rebin else ""))
+    for plt in range(len(plotTypes)):
+        # outcan[plt].cd()
+        summary.cd(plt+1)
+        r.gPad.SetLogx(r.kFALSE)
+        stack[plt].Draw("pfc hist")
+        r.gPad.Update()
+        title = hist[plt].GetTitle()
+        print(stack[plt],stack[plt].GetXaxis(),stack[plt].GetYaxis())
+        stack[plt].SetTitle(title)
+        stack[plt].GetYaxis().SetTitle("%s / 5 GeV"%(plotLabels[plt]))
+        stack[plt].GetYaxis().SetTitleOffset(1.5)
+        stack[plt].GetYaxis().SetNdivisions(510);
+        stack[plt].GetXaxis().SetTitle("%s [GeV]"%(origTitle))
+        stack[plt].GetXaxis().SetTitleOffset(1.25)
+        stack[plt].GetXaxis().SetNdivisions(410);
+        if args.debug:
+            print(stack[plt],stack[plt].GetMinimum(),stack[plt].GetMaximum())
+        stack[plt].SetMinimum(hMin[plt])
+        # stack[plt].SetMinimum(0.8*stack[plt].GetMinimum(1e-7))
+        stack[plt].SetMaximum(1.2*stack[plt].GetMaximum())
+        stack[plt].Draw("pfc hist")
+        r.gPad.Update()
+        legends[plt].Draw("nb")
+        r.gPad.Update()
+        # outcan[plt].Update()
+        # outcan[plt].SaveAs("%s%s_%s_stack.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
+    summary.Update()
+    summary.SaveAs("%s%s%s_stack.png"%(args.sample,ciname if ciname else "", "_rebin%d"%(args.rebin) if args.rebin else ""))
 
-if args.debug:
-    print(hout)
-    raw_input("draw stack")
+    for plt in range(len(plotTypes)):
+        # outcan[plt].cd()
+        summary.cd(plt+1)
+        stack[plt].Draw("pfc hist")
+        if (plt > 2):
+            stack[plt].GetXaxis().SetRangeUser(275.,5000.)
+        stack[plt].Draw("pfc hist")
+        r.gPad.SetLogx(r.kTRUE)
+        r.gPad.Update()
+        legends[plt].Draw("nb")
+        r.gPad.Update()
+        # outcan[plt].Update()
+        # outcan[plt].SaveAs("%s%s_%s_stack_logx.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
+    summary.Update()
+    summary.SaveAs("%s%s%s_stack_logx.png"%(args.sample,ciname if ciname else "", "_rebin%d"%(args.rebin) if args.rebin else ""))
 
-for plt in range(len(plotTypes)):
-    # outcan[plt].cd()
-    summary.cd(plt+1)
-    hout[plt].GetYaxis().SetRangeUser(hMin[plt],hMax[plt])
-    hout[plt].GetXaxis().SetRangeUser(275.,5000.)
-    hout[plt].SetMinimum(hMin[plt])
-    hout[plt].SetMaximum(hMax[plt])
-    hout[plt].SetLineWidth(2)
-    hout[plt].SetLineColor(r.kRed)
-    hout[plt].Draw("")
-    r.gPad.SetLogx(r.kFALSE)
-    r.gPad.Update()
-    # outcan[plt].Update()
-    # outcan[plt].SaveAs("%s%s_%s_combined.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
-summary.Update()
-summary.SaveAs("%s%s%s_combined.png"%(args.sample,ciname if ciname else "", "_rebin%d"%(args.rebin) if args.rebin else ""))
+    if args.debug:
+        print(hout)
+        raw_input("draw stack")
 
-for plt in range(len(plotTypes)):
-    # outcan[plt].cd()
-    summary.cd(plt+1)
-    r.gPad.SetLogx(r.kTRUE)
-    r.gPad.Update()
-    # outcan[plt].Update()
-    # outcan[plt].SaveAs("%s%s_%s_combined_logx.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
-summary.Update()
-summary.SaveAs("%s%s%s_combined_logx.png"%(args.sample,ciname if ciname else "", "_rebin%d"%(args.rebin) if args.rebin else ""))
+    for plt in range(len(plotTypes)):
+        # outcan[plt].cd()
+        summary.cd(plt+1)
+        hout[plt].GetYaxis().SetRangeUser(hMin[plt],hMax[plt])
+        hout[plt].GetXaxis().SetRangeUser(275.,5000.)
+        hout[plt].SetMinimum(hMin[plt])
+        hout[plt].SetMaximum(hMax[plt])
+        hout[plt].SetLineWidth(2)
+        hout[plt].SetLineColor(r.kRed)
+        hout[plt].Draw("")
+        r.gPad.SetLogx(r.kFALSE)
+        r.gPad.Update()
+        # outcan[plt].Update()
+        # outcan[plt].SaveAs("%s%s_%s_combined.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
+    summary.Update()
+    summary.SaveAs("%s%s%s_combined.png"%(args.sample,ciname if ciname else "", "_rebin%d"%(args.rebin) if args.rebin else ""))
+
+    for plt in range(len(plotTypes)):
+        # outcan[plt].cd()
+        summary.cd(plt+1)
+        r.gPad.SetLogx(r.kTRUE)
+        r.gPad.Update()
+        # outcan[plt].Update()
+        # outcan[plt].SaveAs("%s%s_%s_combined_logx.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
+    summary.Update()
+    summary.SaveAs("%s%s%s_combined_logx.png"%(args.sample,ciname if ciname else "", "_rebin%d"%(args.rebin) if args.rebin else ""))
 
 if args.debug:
     raw_input("exit")
