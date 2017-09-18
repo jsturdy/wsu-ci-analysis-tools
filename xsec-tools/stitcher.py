@@ -6,6 +6,7 @@ import math
 
 parser = argparse.ArgumentParser()
 parser.add_argument("sample",        help="Sample to stitch together",type=str)
+parser.add_argument("--lumi",        help="Luminosity value to scael to",type=float,default=1.0)
 parser.add_argument("--lamVal",      help="Lambda value to use",      type=str)
 parser.add_argument("--infMode",     help="Interference mode to use", type=str)
 parser.add_argument("--heliModel",   help="Heliciy model to use",     type=str)
@@ -139,7 +140,7 @@ for i,mass in enumerate(allowedValues["mass"]):
     infname = "%s_M%s_CUETP8M1%s_13TeV_Pythia8_%s_summary.root"%(args.sample, mass, ciextra if ciextra else "", fver)
     if args.debug:
         print(sample)
-    lumi  = 1.0 # in /pb
+    lumi  = 1000.*args.lumi # in /fb
     lfact = 1.0 # to get to human readable, i.e., -> 1/pb, 1/fb etc
     npass = sample["cutEfficiency"][0]
     nfail = sample["cutEfficiency"][1]
