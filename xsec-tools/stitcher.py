@@ -2,6 +2,7 @@
 
 import sys,os,re
 import argparse
+import math
 
 parser = argparse.ArgumentParser()
 parser.add_argument("sample",        help="Sample to stitch together",type=str)
@@ -9,6 +10,7 @@ parser.add_argument("--lamVal",      help="Lambda value to use",      type=int)
 parser.add_argument("--infMode",     help="Interference mode to use", type=str)
 parser.add_argument("--heliModel",   help="Heliciy model to use",     type=str)
 parser.add_argument("--rebin",       help="Rebin input histograms",   type=int)
+parser.add_argument("--tails",       help="Show tails in last bin",   action="store_true")
 parser.add_argument("-d", "--debug", help="debugging information",action="store_true")
 
 args = parser.parse_args()
@@ -163,6 +165,18 @@ for i,mass in enumerate(allowedValues["mass"]):
         for plt in range(len(plotTypes)):
             hist.append(basehist.Clone("m%d_%s"%(mass,plotTypes[plt])))
             r.SetOwnership(hist[plt],False)
+
+            ## Get the tail right
+            if args.tails:
+                lastBin     = hist[plt].GetNbinsX()
+                lastBinVal  = hist[plt].GetBinContent(lastBin)
+                lastBinVal  = lastBin + hist[plt].GetBinContent(lastBin+1)
+                lastBinErr2 = hist[plt].GetBinError(lastBin)**2
+                lastBinErr2 = lastBinErr2 + hist[plt].GetBinError(lastBin)**2
+                hist[plt].SetBinContent(lastBin,lastBinVal)
+                hist[plt].SetBinError(  lastBin,math.sqrt(lastBinErr2))
+
+            ## Set up the display
             hist[plt].SetLineWidth(2)
             hist[plt].SetLineColor(r.kOrange + extra)
             hist[plt].Scale(scaleF[plt])
@@ -180,11 +194,8 @@ for i,mass in enumerate(allowedValues["mass"]):
                 gScaleHist.append(hist[plt])
                 hMax[plt] = 1.25*hist[plt].GetMaximum()
                 hMin[plt] = 0.8*hist[plt].GetMinimum(1e-8)
-                # gScaleHist[plt].SetMinimum(hMin[plt])
-                # gScaleHist[plt].SetMaximum(hMax[plt])
             elif i == (len(allowedValues["mass"])-1):
                 hMin[plt] = 0.8*hist[plt].GetMinimum(1e-8)
-                # gScaleHist[plt].SetMinimum(hMin[plt])
                 pass
             pass
 
