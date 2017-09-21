@@ -35,27 +35,34 @@ with open("ci_xsec_data.pkl","wb") as pkl:
             # data = f.read()
             for line in f:
                 if args.debug:
-                    print(line)
+                    print("line:",line)
                     pass
                 splitline = filter(None,re.split('.log|:|=|\n|\+\-| ',line))
                 if args.debug:
-                    print(splitline,len(splitline))
+                    print("splitline:",splitline,len(splitline))
                     pass
-    
+
                 sample  = splitline[0].split('_')
                 main    = sample[1]
                 mass    = sample[2]
                 special = sample[4].split("TeV")
-    
+                if args.debug:
+                    print("sample:", sample)
+                    print("main:",   main)
+                    print("mass:",   mass)
+                    print("special:",special)
+
                 sample = sampleDict[main]
                 if "CI" in main:
-                    lval   = special[0][3:]
+                    lval   = special[0]
                     inte   = special[1][:-2]
                     heli   = special[1][-2:]
-                    sample = sample[mass][lval][inte][heli]
+                    sample = sample[lval][inte][heli][mass]
                 else:
                     sample = sample[mass]
                 if (sample.keys()):
+                    if args.debug:
+                        print("dict:",sample)
                     if splitline[1] == "maxCut":
                         sample[splitline[1]] = float(splitline[2])
                     else:
@@ -70,9 +77,9 @@ with open("ci_xsec_data.pkl","wb") as pkl:
                         pass
                 else:
                     if args.debug:
-                        print main,mass,lval,inte,heli
-                        print(splitline)
-                        print(splitline[1],splitline[2])
+                        print("create dict:",main,mass,lval,inte,heli)
+                        print("splitline2:",splitline)
+                        print("splitline3:",splitline[1],splitline[2])
                         pass
                     sample[splitline[1]] = float(splitline[2])
                     pass
