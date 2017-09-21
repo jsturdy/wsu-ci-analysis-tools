@@ -140,14 +140,14 @@ for i,mass in enumerate(allowedValues["mass"]):
     infname = "%s_M%s_CUETP8M1%s_13TeV_Pythia8_%s_summary.root"%(args.sample, mass, ciextra if ciextra else "", fver)
     if args.debug:
         print(sample)
-    lumi  = 1000.*args.lumi # in /fb
-    lfact = 1.0 # to get to human readable, i.e., -> 1/pb, 1/fb etc
+    lumi  = args.lumi # in /fb
+    lfact = 1000. # to get to human readable, i.e., -> 1/pb, 1/fb etc
     npass = sample["cutEfficiency"][0]
     nfail = sample["cutEfficiency"][1]
     ngen  = npass+nfail
     eff   = float(npass)/float(ngen)
     xs    = sample["xsec"][0] ## in pb
-    lumif = xs*lumi*lfact/ngen
+    lumif = xs*lumi*lfact/float(ngen)
     sf    = lumif*eff
     print(ngen,npass,nfail,eff,xs,lumif,sf)
 
