@@ -121,11 +121,11 @@ for i,mass in enumerate(allowedValues["mass"]):
     if "CI" in args.sample:
         if args.debug:
             print("M%d"%(mass),"Lam%s"%(args.lamVal),args.infMode,args.heliModel)
-            print("mass:key",sample["M%d"%(mass)])
-            print("lambda:key",sample["M%d"%(mass)]["Lam%s"%(args.lamVal)])
-            print("interference:key",sample["M%d"%(mass)]["Lam%s"%(args.lamVal)][args.infMode])
-            print("helicity:key",sample["M%d"%(mass)]["Lam%s"%(args.lamVal)][args.infMode][args.heliModel])
-        sample = sample["M%d"%(mass)]["Lam%s"%(args.lamVal)][args.infMode][args.heliModel]
+            print("lambda:key",sample["Lam%s"%(args.lamVal)])
+            print("interference:key",sample["Lam%s"%(args.lamVal)][args.infMode])
+            print("helicity:key",sample["Lam%s"%(args.lamVal)][args.infMode][args.heliModel])
+            print("mass:key",sample["Lam%s"%(args.lamVal)][args.infMode][args.heliModel]["M%d"%(mass)])
+        sample = sample["Lam%s"%(args.lamVal)][args.infMode][args.heliModel]["M%d"%(mass)]
         fver   = "Corrected-v4"
         title  = "#Lambda == %s TeV, %s interference, #eta=%s"%(args.lamVal,args.infMode,args.heliModel)
     else:
@@ -417,4 +417,4 @@ if gScaleHist:
     summary.SaveAs("%s%s%s_combined_logx.png"%(args.sample,ciname if ciname else "", "_rebin%d"%(args.rebin) if args.rebin else ""))
 
 if args.debug:
-    raw_input("exit")
+    raw_input("finish")
