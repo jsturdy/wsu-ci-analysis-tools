@@ -11,8 +11,9 @@ parser.add_argument("--lamVal",      help="Lambda value to use",      type=str)
 parser.add_argument("--infMode",     help="Interference mode to use", type=str)
 parser.add_argument("--heliModel",   help="Heliciy model to use",     type=str)
 parser.add_argument("--rebin",       help="Rebin input histograms",   type=int)
-parser.add_argument("--tails",       help="Show tails in last bin",   action="store_true")
-parser.add_argument("-d", "--debug", help="debugging information",action="store_true")
+parser.add_argument("--tails",       help="Show tails in last bin",    action="store_true")
+parser.add_argument("--preFSR",      help="Use pre-FSR gen particles", action="store_true")
+parser.add_argument("-d", "--debug", help="debugging information",     action="store_true")
 
 args = parser.parse_args()
 
@@ -63,10 +64,12 @@ with open("ci_xsec_data.pkl","rb") as pkl:
     samples = pickle.load(pkl)
     pass
 
+prefsrExtra = "Pre" if args.preFSR else ""
 if "2E" in args.sample:
-    histname = "diElectronMass"
+    histname = "diElectronMass%s"%(prefsrExtra)
 else:
-    histname = "diMuonMass"
+    histname = "diMuonMass%s"%(prefsrExtra)
+prefsrExtra = "_preFSR" if args.preFSR else ""
 
 # CITo2Mu_M800_CUETP8M1_Lam28TeVConLL_13TeV_Pythia8_Corrected-v4_summary.root
 plotTypes = [
@@ -321,7 +324,7 @@ if gScaleHist:
         # outcan[plt].Update()
         # outcan[plt].SaveAs("%s%s_%s.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
     summary.Update()
-    summary.SaveAs("%s%s%s_summary.png"%(args.sample,ciname if ciname else "", "_rebin%d"%(args.rebin) if args.rebin else ""))
+    summary.SaveAs("%s%s%s%s_summary.png"%(args.sample,ciname if ciname else "", prefsrExtra, "_rebin%d"%(args.rebin) if args.rebin else ""))
 
     for plt in range(len(plotTypes)):
         # outcan[plt].cd()
@@ -334,7 +337,7 @@ if gScaleHist:
         # outcan[plt].Update()
         # outcan[plt].SaveAs("%s%s_%s_logx.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
     summary.Update()
-    summary.SaveAs("%s%s%s_summary_logx.png"%(args.sample,ciname if ciname else "", "_rebin%d"%(args.rebin) if args.rebin else ""))
+    summary.SaveAs("%s%s%s%s_summary_logx.png"%(args.sample,ciname if ciname else "", prefsrExtra, "_rebin%d"%(args.rebin) if args.rebin else ""))
 
     if args.debug:
         print(stack)
@@ -367,7 +370,7 @@ if gScaleHist:
         # outcan[plt].Update()
         # outcan[plt].SaveAs("%s%s_%s_stack.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
     summary.Update()
-    summary.SaveAs("%s%s%s_stack.png"%(args.sample,ciname if ciname else "", "_rebin%d"%(args.rebin) if args.rebin else ""))
+    summary.SaveAs("%s%s%s%s_stack.png"%(args.sample,ciname if ciname else "", prefsrExtra, "_rebin%d"%(args.rebin) if args.rebin else ""))
 
     for plt in range(len(plotTypes)):
         # outcan[plt].cd()
@@ -383,7 +386,7 @@ if gScaleHist:
         # outcan[plt].Update()
         # outcan[plt].SaveAs("%s%s_%s_stack_logx.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
     summary.Update()
-    summary.SaveAs("%s%s%s_stack_logx.png"%(args.sample,ciname if ciname else "", "_rebin%d"%(args.rebin) if args.rebin else ""))
+    summary.SaveAs("%s%s%s%s_stack_logx.png"%(args.sample,ciname if ciname else "", prefsrExtra, "_rebin%d"%(args.rebin) if args.rebin else ""))
 
     if args.debug:
         print(hout)
@@ -404,7 +407,7 @@ if gScaleHist:
         # outcan[plt].Update()
         # outcan[plt].SaveAs("%s%s_%s_combined.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
     summary.Update()
-    summary.SaveAs("%s%s%s_combined.png"%(args.sample,ciname if ciname else "", "_rebin%d"%(args.rebin) if args.rebin else ""))
+    summary.SaveAs("%s%s%s%s_combined.png"%(args.sample,ciname if ciname else "", prefsrExtra, "_rebin%d"%(args.rebin) if args.rebin else ""))
 
     for plt in range(len(plotTypes)):
         # outcan[plt].cd()
@@ -414,7 +417,7 @@ if gScaleHist:
         # outcan[plt].Update()
         # outcan[plt].SaveAs("%s%s_%s_combined_logx.png"%(args.sample,ciname if ciname else "",plotTypes[plt]))
     summary.Update()
-    summary.SaveAs("%s%s%s_combined_logx.png"%(args.sample,ciname if ciname else "", "_rebin%d"%(args.rebin) if args.rebin else ""))
+    summary.SaveAs("%s%s%s%s_combined_logx.png"%(args.sample,ciname if ciname else "", prefsrExtra, "_rebin%d"%(args.rebin) if args.rebin else ""))
 
 if args.debug:
     raw_input("finish")
