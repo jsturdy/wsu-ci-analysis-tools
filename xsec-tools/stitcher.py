@@ -140,7 +140,7 @@ for i,mass in enumerate(allowedValues["mass"]):
     if not sample:
         print("Sample %s%s%s has no keys in mapping"%(args.sample, mass, ciextra if ciextra else ""))
         continue
-    infname = "%s_M%s_CUETP8M1%s_13TeV_Pythia8_%s_summary.root"%(args.sample, mass, ciextra if ciextra else "", fver)
+    infname = "data/%s/%s_M%s_CUETP8M1%s_13TeV_Pythia8_%s_summary.root"%("central",args.sample, mass, ciextra if ciextra else "", fver)
     if args.debug:
         print(sample)
     lumi  = args.lumi # in /fb
