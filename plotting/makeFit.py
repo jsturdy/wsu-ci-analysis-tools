@@ -1,13 +1,25 @@
 #!/bin/env python
 
+import sys, os
+import argparse
+parser = argparse.ArgumentParser()
+#parser.add_argument("-inFile", help="Input file", type=str)
+parser.add_argument("-flav", help="Lepton flavor", type=str)
+parser.add_argument("-unc",  help="Uncertainty: 'nominal'*, 'scaleup', 'scaledown', 'smeared'", type=str, default="nominal")
+parser.add_argument("-eta",  help="Eta bin: 'inc'*, 'bb', 'be', 'ee', 'be+', 'be-', 'e+e-', 'e-e-', 'e+e+'", type=str, default="inc")
+parser.add_argument("-cs",   help="CS bin: 'inc'*, 'cs+', 'cs-'", type=str, default="inc")
+parser.add_argument("-d",    help="debug", action='store_true')
+
+args = parser.parse_args()
+
 import ROOT as r
 import numpy as np
 from nesteddict import nesteddict as ndict
 import json
 
 antypes=[["E","e","Ele"],["Mu","mu","Mu"]]
-form="output_CITo2%s_M%d_CUETP8M1_Lam%sTeV%s%s_13TeV_Pythia8_Corrected-v4_ntuple.root"
-dyform="output_DYTo2%s_M%d_CUETP8M1_13TeV_Pythia8_Corrected-v3_ntuple.root"
+form="output_CITo2{0:s}_M{1:d}_CUETP8M1_Lam{2:s}TeV{3:s}{4:s}_13TeV_Pythia8_Corrected-v4_ntuple.root"
+dyform="output_DYTo2{0:s}_M{1:d}_CUETP8M1_13TeV_Pythia8_Corrected-v3_ntuple.root"
 
 r.gROOT.SetBatch(True)
 
@@ -16,42 +28,75 @@ lvals=["1", "10", "16", "22", "28", "34", "100k"]
 helis=["LL","LR","RR"]
 intfs=["Con","Des"]
 
-supers = [400,500,700,1100,1900,3500]
+supers = [400,500,700,1100,1900,3500,5000]
+
+uncertainties = {
+    "nominal":   "CSMassBinned",
+    "scaleup":   "CSMassUpBinned",
+    "scaledown": "CSMassDownBinned",
+    "smeared":   "CSSmearedMassBinned"
+    }
+etabins = ["inc","bb","be","ee","be+","be-","e+e-","e-e-","e+e+"]
+#             0    1    2    3
+csbins = ["inc","cs+","cs-"]
+#            0     1     2
+
+etabin = args.eta
+csbin  = args.cs
+unc    = args.unc
+histbin = (etabins.index(etabin)*3)+csbins.index(csbin)+1
+debug = args.d
+
+if csbin not in csbins:
+    print("CS bin '{0}' not in:".format(csbin),csbins)
+    exit(1)
+if etabin not in etabins:
+    print("Eta bin '{0}' not in:".format(etabin),etabins)
+    exit(1)
+if unc not in uncertainties:
+    print("Plot type '{0}' not in:".format(unc),uncertainties)
+    exit(1)
 
 for antype in antypes:
     base="root://cmseos.fnal.gov///store/user/sturdy/ZprimeAnalysis/histosDec15/histosZprime{0:s}{0:s}/".format(antype[2])
     params = ndict()
 
-    with open("ciparametrization_2%s.json"%(antype[1]),"w") as js:
-        with open("cicounts_2%s.txt"%(antype[1]),"w") as out:
+    with open("ciparametrization_2{0:s}_{1:s}_{2:s}_{3:s}.json".format(antype[1],unc,etabin,csbin),"w") as js:
+        with open("cicounts_2{0:s}_{1:s}_{2:s}_{3:s}.txt".format(antype[1],unc,etabin,csbin),"w") as out:
             for intf in intfs:
                 for heli in helis:
                     files=[]
                     for point in supers[:-1]:
-                        # params["%s%s_%dGeV"%(intf,heli,point)] = np.zeros(len(lvals),'float64')
-                        params["%s%s_%dGeV"%(intf,heli,point)] = [0 for j in range(len(lvals))]
+                        # params["{0:s}{1:s}_{2:d}GeV".format(intf,heli,point)] = np.zeros(len(lvals),'float64')
+                        params["{0:s}{1:s}_{2:d}GeV".format(intf,heli,point)] = [0 for j in range(len(lvals))]
                     print("{0:s}{1:s}".format(intf,heli))
                     for i,lval in enumerate(lvals):
                         hist = None
                         can   = r.TCanvas("can","",800,800)
                         stack = r.THStack("stack","")
                         for mval in mvals:
-                            lf = r.TFile.Open("%s%s"%(base,form%(antype[0],mval,lval,intf,heli)))
+                            if debug:
+                                print("opening {1:s}{0:s}".format(base,form.format(antype[0],mval,lval,intf,heli)))
+                                exit(1)
+                            lf = r.TFile.Open("{0:s}{1:s}".format(base,form.format(antype[0],mval,lval,intf,heli)))
                             files.append(lf)  ## ROOT why are you so awful!!!!???
                             if not lf:
                                 print(lf,hist)
                                 continue
-                            htmp = lf.Get("ZprimeRecomass")
+                            # htmp = lf.Get("ZprimeRecomass")
+                            histname = "cito2{0:s}_m{1}_Lam{2}{3}{4}_{5:s}{6:s}{7:s}".format(antype,mval,lval,intf,heli,
+                                                                                             csbin,unc,etabin)
+                            htmp = lf.Get("{0:s}".format(uncertainties[unc])).ProjectionX(histname,histbin,histbin)
                             htmp.Scale(1.3) # apply k-factor on signal samples
-                            htmp = htmp.Rebin(100,"%s_%d_rebinned"%(htmp.GetName(),mval))
+                            htmp = htmp.Rebin(100,"{0:s}_{1:d}_rebinned".format(htmp.GetName(),mval))
                             if mval == 300:
-                                hist = htmp.Clone("htmp_%s%s%s%d"%(lval,intf,heli,mval))
+                                hist = htmp.Clone("htmp_{0:s}{1:s}{2:s}{3:d}".format(lval,intf,heli,mval))
                                 htmp.SetLineColor(r.kOrange)
                                 htmp.SetFillColor(r.kOrange)
                                 htmp.SetFillStyle(3001)
                                 stack.Add(htmp)
                             else:
-                                hist.Add(htmp.Clone("htmp_%s%s%s%d"%(lval,intf,heli,mval)))
+                                hist.Add(htmp.Clone("htmp_{0:s}{1:s}{2:s}{3:d}".format(lval,intf,heli,mval)))
                                 if mval == 1300:
                                     htmp.SetLineColor(r.kGreen)
                                     htmp.SetFillColor(r.kGreen)
@@ -63,15 +108,18 @@ for antype in antypes:
                                     htmp.SetFillStyle(3001)
                                     stack.Add(htmp)
                                     pass
-                                if mval == 1300 and "%s%s"%(intf,heli) == "ConLL":
-                                    lf = r.TFile.Open("%s%s"%(base,form%(antype[0],2000,lval,intf,heli)))
+                                if mval == 1300 and "{0:s}{1:s}".format(intf,heli) == "ConLL":
+                                    lf = r.TFile.Open("{0:s}{1:s}".format(base,form.format(antype[0],2000,lval,intf,heli)))
                                     if not lf:
                                         print(lf,htmp,hist)
                                         continue
-                                    htmp = lf.Get("ZprimeRecomass")
+                                    # htmp = lf.Get("ZprimeRecomass")
+                                    histname = "cito2{0:s}_m{1}_Lam{2}{3}{4}_{5:s}{6:s}{7:s}".format(antype,2000,lval,intf,heli,
+                                                                                                     csbin,unc,etabin)
+                                    htmp = lf.Get("{0:s}".format(uncertainties[unc])).ProjectionX(histname,histbin,histbin)
                                     htmp.Scale(1.3) # apply k-factor on signal samples
-                                    htmp = htmp.Rebin(100,"%s_%d_rebinned"%(htmp.GetName(),2000))
-                                    hist.Add(htmp.Clone("htmp_%s%s%s%d"%(lval,intf,heli,2000)))
+                                    htmp = htmp.Rebin(100,"{0:s}_{1:d}_rebinned".format(htmp.GetName(),2000))
+                                    hist.Add(htmp.Clone("htmp_{0:s}{1:s}{2:s}{3:d}".format(lval,intf,heli,2000)))
                                     htmp.SetLineColor(r.kRed)
                                     htmp.SetFillColor(r.kRed)
                                     htmp.SetFillStyle(3001)
@@ -91,7 +139,9 @@ for antype in antypes:
                         can.Update()
                         # raw_input()
                         for ftype in ["png","C","pdf","eps"]:
-                            can.SaveAs("~/public/forCIAnalysis/cito2{1:s}_{2:s}{3:s}{4:s}.{0:s}".format(ftype,antype[1],lval,intf,heli))
+                            can.SaveAs("~/public/forCIAnalysis/cito2{1:s}_{2:s}{3:s}{4:s}_{5:s}_{6:s}_{7:s}.{0:s}".format(ftype,antype[1],
+                                                                                                                          lval,intf,heli,
+                                                                                                                          unc,etabin,csbin))
                         # raw_input("enter to continue")
                         for p,point in enumerate(supers[:-1]):
                             bval  = hist.FindBin(point)
@@ -99,7 +149,7 @@ for antype in antypes:
                             val  = hist.Integral(bval,upval)
                             print("{0:s} {1:d} {2:d} {3:d} {4:2.4f}".format(lval,point,bval,upval,val))
                             out.write("{0:s} {1:d} {2:d} {3:d} {4:2.4f}\n".format(lval,point,bval,upval,val))
-                            params["%s%s_%dGeV"%(intf,heli,point)][i] = val
+                            params["{0:s}{1:s}_{2:d}GeV".format(intf,heli,point)][i] = val
                             pass
                         pass
                     pass
