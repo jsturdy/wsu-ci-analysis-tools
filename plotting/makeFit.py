@@ -5,7 +5,7 @@ import argparse
 parser = argparse.ArgumentParser()
 #parser.add_argument("-inFile", help="Input file", type=str)
 parser.add_argument("-flav", help="Lepton flavor", type=str)
-parser.add_argument("-unc",  help="Uncertainty: 'nominal'*, 'scaleup', 'scaledown', 'smeared'", type=str, default="nominal")
+parser.add_argument("-unc",  help="Uncertainty: 'nominal'*, 'scaleup', 'scaledown', 'muonid', 'smeared'", type=str, default="nominal")
 parser.add_argument("-eta",  help="Eta bin: 'inc'*, 'bb', 'be', 'ee', 'be+', 'be-', 'e+e-', 'e-e-', 'e+e+'", type=str, default="inc")
 parser.add_argument("-cs",   help="CS bin: 'inc'*, 'cs+', 'cs-'", type=str, default="inc")
 parser.add_argument("-d",    help="debug", action='store_true')
@@ -17,7 +17,10 @@ import numpy as np
 from nesteddict import nesteddict as ndict
 import json
 
-antypes=[["E","e","Ele"],["Mu","mu","Mu"]]
+antypes=[
+    ["E","e","Ele","/store/user/sturdy/ZprimeAnalysis/histosHLTWeighted/histosZprimeEleEle"],
+    ["Mu","mu","Mu","/store/user/sturdy/ZprimeAnalysis/histosCutHLT/histosZprimeMuMu"]
+    ]
 form="output_CITo2{0:s}_M{1:d}_CUETP8M1_Lam{2:s}TeV{3:s}{4:s}_13TeV_Pythia8_Corrected-v4_ntuple.root"
 dyform="output_DYTo2{0:s}_M{1:d}_CUETP8M1_13TeV_Pythia8_Corrected-v3_ntuple.root"
 
@@ -34,7 +37,9 @@ uncertainties = {
     "nominal":   "CSMassBinned",
     "scaleup":   "CSMassUpBinned",
     "scaledown": "CSMassDownBinned",
-    "smeared":   "CSSmearedMassBinned"
+    ## muon only
+    "smeared":   "CSSmearedMassBinned",
+    "muonid":    "CSMassMuIDBinned",
     }
 etabins = ["inc","bb","be","ee","be+","be-","e+e-","e-e-","e+e+"]
 #             0    1    2    3
@@ -58,7 +63,11 @@ if unc not in uncertainties:
     exit(1)
 
 for antype in antypes:
-    base="root://cmseos.fnal.gov///store/user/sturdy/ZprimeAnalysis/histosDec15/histosZprime{0:s}{0:s}/".format(antype[2])
+    muonlyuncs = ["muonid", "smeared"]
+    if unc in muonlyuncs and antype[2] == "Ele":
+        print("Not processing uncertainty '{0:s}' for leptonn flavour '{1:s}'".format(unc,antype[2]))
+        continue
+    base="root://cmseos.fnal.gov//{1:s}/histosZprime{0:s}{0:s}/".format(antype[2],antype[3])
     params = ndict()
 
     with open("ciparametrization_2{0:s}_{1:s}_{2:s}_{3:s}.json".format(antype[1],unc,etabin,csbin),"w") as js:
@@ -68,7 +77,13 @@ for antype in antypes:
                     files=[]
                     for point in supers[:-1]:
                         # params["{0:s}{1:s}_{2:d}GeV".format(intf,heli,point)] = np.zeros(len(lvals),'float64')
-                        params["{0:s}{1:s}_{2:d}GeV".format(intf,heli,point)] = [0 for j in range(len(lvals))]
+                        params["{0:s}{1:s}_{2:d}GeV".format(intf,heli,point)]     = [0. for j in range(len(lvals))]
+                        params["{0:s}{1:s}_{2:d}GeV_err".format(intf,heli,point)] = [0. for j in range(len(lvals))]
+                        pass
+                    for point in [1000+x for x in range(0,1500,200)]:
+                        params["{0:s}{1:s}_{2:d}GeV".format(intf,heli,point)]     = [0. for j in range(len(lvals))]
+                        params["{0:s}{1:s}_{2:d}GeV_err".format(intf,heli,point)] = [0. for j in range(len(lvals))]
+                        pass
                     print("{0:s}{1:s}".format(intf,heli))
                     for i,lval in enumerate(lvals):
                         hist = None
@@ -86,6 +101,7 @@ for antype in antypes:
                             # htmp = lf.Get("ZprimeRecomass")
                             histname = "cito2{0:s}_m{1}_Lam{2}{3}{4}_{5:s}{6:s}{7:s}".format(antype,mval,lval,intf,heli,
                                                                                              csbin,unc,etabin)
+                            print(lf)
                             htmp = lf.Get("{0:s}".format(uncertainties[unc])).ProjectionX(histname,histbin,histbin)
                             htmp.Scale(1.3) # apply k-factor on signal samples
                             htmp = htmp.Rebin(100,"{0:s}_{1:d}_rebinned".format(htmp.GetName(),mval))
@@ -116,6 +132,7 @@ for antype in antypes:
                                     # htmp = lf.Get("ZprimeRecomass")
                                     histname = "cito2{0:s}_m{1}_Lam{2}{3}{4}_{5:s}{6:s}{7:s}".format(antype,2000,lval,intf,heli,
                                                                                                      csbin,unc,etabin)
+                                    print(lf)
                                     htmp = lf.Get("{0:s}".format(uncertainties[unc])).ProjectionX(histname,histbin,histbin)
                                     htmp.Scale(1.3) # apply k-factor on signal samples
                                     htmp = htmp.Rebin(100,"{0:s}_{1:d}_rebinned".format(htmp.GetName(),2000))
@@ -146,10 +163,28 @@ for antype in antypes:
                         for p,point in enumerate(supers[:-1]):
                             bval  = hist.FindBin(point)
                             upval = hist.FindBin(supers[p+1]-0.05)
-                            val  = hist.Integral(bval,upval)
-                            print("{0:s} {1:d} {2:d} {3:d} {4:2.4f}".format(lval,point,bval,upval,val))
+                            val   = hist.Integral(bval,upval)
+                            err   = r.Double(0)
+                            val   = hist.Integral(bval,upval)
+                            val2  = hist.IntegralAndError(bval,upval,err)
+                            print("{0:s} {1:d} {2:d} {3:d} {4:2.4f} {5:2.4f}".format(lval,point,bval,upval,val,err))
                             out.write("{0:s} {1:d} {2:d} {3:d} {4:2.4f}\n".format(lval,point,bval,upval,val))
                             params["{0:s}{1:s}_{2:d}GeV".format(intf,heli,point)][i] = val
+                            params["{0:s}{1:s}_{2:d}GeV_err".format(intf,heli,point)][i] = err
+                            pass
+
+                        # Mass bin scan above 1 TeV
+                        for point in [1000+x for x in range(0,1500,200)]:
+                            bval  = hist.FindBin(point)
+                            upval = hist.FindBin(100000000)
+                            val   = hist.Integral(bval,upval)
+                            err   = r.Double(0)
+                            val   = hist.Integral(bval,upval)
+                            val2  = hist.IntegralAndError(bval,upval,err)
+                            print("{0:s} {1:d} {2:d} {3:d} {4:2.4f} {5:2.4f}".format(lval,point,bval,upval,val,err))
+                            out.write("{0:s} {1:d} {2:d} {3:d} {4:2.4f}\n".format(lval,point,bval,upval,val))
+                            params["{0:s}{1:s}_{2:d}GeV".format(intf,heli,point)][i]     = val
+                            params["{0:s}{1:s}_{2:d}GeV_err".format(intf,heli,point)][i] = err
                             pass
                         pass
                     pass
