@@ -25,7 +25,7 @@ heli = "LL"
 supers = [400,500,700,1100,1900,3500]
 bins = [0,100,200,300,400,500,700,900,1100,1500,2000,2500,3000,5000]
 rbins = np.array(bins, np.dtype('float64'))
-srcs = ["New","Testing"]
+srcs = ["Jan17"]
 for src in srcs:
     for antype in antypes:
         base="root://cmseos.fnal.gov///store/user/sturdy/ZprimeAnalysis/histos{0:s}/histosZprime{1:s}{1:s}/".format(src,antype[2])

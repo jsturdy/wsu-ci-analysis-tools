@@ -50,9 +50,18 @@ hist = ndict()
 pnames = ndict()
 
 samples = {
-    "Num":numlist,
-    "Den":denlist
+    "{0:s}To2{1:s}".format(numlist[0],numlist[1][1:]):numlist,
+    "{0:s}To2{1:s}".format(denlist[0],denlist[1][1:]):denlist
     }
+
+numspecial = ""
+if numlist[0] == "CI":
+    numspecial = "{0:s}TeV{1:s}{2:s}".format(numlist[3],numlist[4],numlist[5])
+    pass
+denspecial = ""
+if denlist[0] == "CI":
+    denspecial = "{0:s}TeV{1:s}{2:s}".format(denlist[3],denlist[4],denlist[5])
+    pass
 
 for sample in samples:
     numsample = samples[sample]
@@ -74,6 +83,7 @@ for sample in samples:
 
     can   = r.TCanvas("can","",800,800)
     stack = r.THStack("stack","")
+    leg = r.TLegend(0.5,0.7,0.9,0.9)
 
     for mval in mvals:
         if numsample[0] == "CI":
@@ -101,43 +111,50 @@ for sample in samples:
             htmp.SetFillColor(r.kOrange)
             htmp.SetFillStyle(3001)
             stack.Add(htmp)
+            leg.AddEntry(hist[sample],"{0:s} {1:d} GeV".format(sample,mval),"f")
         else:
             if hist[sample]:
                 hist[sample].Add(htmp.Clone("htmp_%s%d"%(sample,mval)))
             else:
                 hist[sample] = htmp.Clone("htmp_%s%d"%(sample,mval))
                 pass
+
             if mval == 1300:
                 htmp.SetLineColor(r.kGreen)
                 htmp.SetFillColor(r.kGreen)
                 htmp.SetFillStyle(3001)
                 stack.Add(htmp)
+                leg.AddEntry(hist[sample],"{0:s} {1:d} GeV".format(sample,mval),"f")
             else:
                 htmp.SetLineColor(r.kBlue)
                 htmp.SetFillColor(r.kBlue)
                 htmp.SetFillStyle(3001)
                 stack.Add(htmp)
+                leg.AddEntry(hist[sample],"{0:s} {1:d} GeV".format(sample,mval),"f")
                 pass
+
             if numsample[0] == "CI":
                 if mval == 1300 and "%s%s"%(intf,heli) == "ConLL":
                     lf = r.TFile.Open("%s%s"%(base,ciform%(numsample[1][1:],2000,lval,intf,heli)))
-                    pass
-                if not lf or lf == None:
-                    print(lf,hist[sample])
-                    continue
-                elif not lf.IsOpen() or lf.IsZombie():
-                    print(lf,hist[sample])
-                    continue
+                    print("M2000 sample",lf)
+                    if not lf or lf == None:
+                        print(lf,hist[sample])
+                        continue
+                    elif not lf.IsOpen() or lf.IsZombie():
+                        print(lf,hist[sample])
+                        continue
 
-                htmp = lf.Get("ZprimeRecomass")
-                htmp.Scale(1.3)
+                    htmp = lf.Get("ZprimeRecomass")
+                    htmp.Scale(1.3)
                 # htmp = htmp.Rebin(100,"%s_%d_rebinned"%(htmp.GetName(),2000))
-                htmp = htmp.Rebin(len(rbins)-1,"%s_%d_rebinned"%(htmp.GetName(),2000),rbins)
-                hist[sample].Add(htmp.Clone("htmp_%s%d"%(numsample[0],2000)))
-                htmp.SetLineColor(r.kRed)
-                htmp.SetFillColor(r.kRed)
-                htmp.SetFillStyle(3001)
-                stack.Add(htmp)
+                    htmp = htmp.Rebin(len(rbins)-1,"%s_%d_rebinned"%(htmp.GetName(),2000),rbins)
+                    hist[sample].Add(htmp.Clone("htmp_%s%d"%(numsample[0],2000)))
+                    htmp.SetLineColor(r.kRed)
+                    htmp.SetFillColor(r.kRed)
+                    htmp.SetFillStyle(3001)
+                    stack.Add(htmp)
+                    leg.AddEntry(hist[sample],"{0:s} {1:d} GeV".format(sample,2000),"f")
+                    pass
                 pass
             pass
         pass
@@ -150,6 +167,8 @@ for sample in samples:
     stack.GetXaxis().SetNdivisions(505)
     r.gPad.SetLogy(True)
     hist[sample].Draw("same")
+    leg.Draw("")
+    can.Modified()
     can.Update()
     # raw_input()
     for ftype in ["png","C","pdf","eps","png"]:
@@ -168,16 +187,21 @@ for sample in samples:
 can   = r.TCanvas("can","",800,800)
 plot  = r.TPad("plotpad","",0,0.15,1,1)
 rplot = r.TPad("ratiopad","",0,0,1,0.15)
-hist["Num"].SetLineColor(r.kRed)
-hist["Num"].SetLineWidth(2)
-hist["Den"].SetLineColor(r.kBlue)
-hist["Den"].SetLineWidth(2)
-# rhist = hist["Num"].Clone("lam{0:s}dyratio".format(lval))
-rhist = hist["Num"].Clone("{0:s}vs{1:s}ratio".format(pnames["Num"],pnames["Den"]))
-rhist.Divide(hist["Den"])
+hist["{0:s}To2{1:s}".format(numlist[0],numlist[1][1:])].SetLineColor(r.kRed)
+hist["{0:s}To2{1:s}".format(numlist[0],numlist[1][1:])].SetLineWidth(2)
+hist["{0:s}To2{1:s}".format(denlist[0],denlist[1][1:])].SetLineColor(r.kBlue)
+hist["{0:s}To2{1:s}".format(denlist[0],denlist[1][1:])].SetLineWidth(2)
+# rhist = hist["{0:s}To2{1:s}".format(numlist[0],numlist[1][1:])].Clone("lam{0:s}dyratio".format(lval))
+rhist = hist["{0:s}To2{1:s}".format(numlist[0],numlist[1][1:])].Clone("{0:s}vs{1:s}ratio".format(pnames["{0:s}To2{1:s}".format(numlist[0],numlist[1][1:])],pnames["{0:s}To2{1:s}".format(denlist[0],denlist[1][1:])]))
+rhist.Divide(hist["{0:s}To2{1:s}".format(denlist[0],denlist[1][1:])])
 plot.cd()
-hist["Num"].Draw()
-hist["Den"].Draw("same")
+leg = r.TLegend(0.5,0.7,0.9,0.9)
+leg.AddEntry(hist["{0:s}To2{1:s}".format(numlist[0],numlist[1][1:])],"numerator:   {0:s}To2{1:s} {2:s}".format(numlist[0],numlist[1][1:],numspecial),"lep")
+leg.AddEntry(hist["{0:s}To2{1:s}".format(denlist[0],denlist[1][1:])],"denominator: {0:s}To2{1:s} {2:s}".format(denlist[0],denlist[1][1:],denspecial),"lep")
+hist["{0:s}To2{1:s}".format(numlist[0],numlist[1][1:])].Draw()
+hist["{0:s}To2{1:s}".format(denlist[0],denlist[1][1:])].Draw("same")
+leg.Draw("")
+can.Modified()
 r.gPad.SetLogy(True)
 r.gPad.SetGridy(True)
 r.gPad.SetGridx(True)
@@ -201,6 +225,6 @@ if args.debug:
     pass
 for ftype in ["png","C","pdf","eps","png"]:
     # can.SaveAs("~/public/forCIAnalysis/ratio_cilam{2:s}vsdyto2{1:s}.{0:s}".format(ftype,antype[0],lval))
-    can.SaveAs("~/public/forCIAnalysis/ratio_{0:s}vs{1:s}.{2:s}".format(pnames["Num"],pnames["Den"],ftype))
+    can.SaveAs("~/public/forCIAnalysis/ratio_{0:s}vs{1:s}.{2:s}".format(pnames["{0:s}To2{1:s}".format(numlist[0],numlist[1][1:])],pnames["{0:s}To2{1:s}".format(denlist[0],denlist[1][1:])],ftype))
     # raw_input("enter to continue")
     pass
