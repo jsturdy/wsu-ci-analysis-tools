@@ -33,7 +33,7 @@ r.gErrorIgnoreLevel = r.kWarning
 
 #lvals = ["1", "10", "16", "22", "28", "34", "100k"]
 lvals = [1, 10, 16, 22, 28, 34, 100000]
-lerrs = [1., 1., 1., 1., 1., 1., 1.]
+lerrs = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 10.]
 bvals = [i for i in range(len(lvals))]
 helis = ["LL","LR","RR"]
 intfs = ["Con","Des"]
@@ -64,7 +64,7 @@ debug = args.d
 desp1type = "float"
 if args.fixdes or args.fixinf:
     desp1type = "fixed"
-    pass    
+    pass
 
 if csbin not in csbins:
     print("CS bin '{0}' not in:".format(csbin),csbins)
@@ -111,7 +111,7 @@ for emutype in ["e","mu"]:
                 pass
             pass
         outf.Write()
-    
+
         for heli in helis:
             conFitPar = []
             for intf in intfs:
@@ -123,8 +123,9 @@ for emutype in ["e","mu"]:
                 leg = r.TLegend(0.5,0.7,0.95,0.9)
                 for grbin in grbins:
                     grMass[grbin] = outf.Get("gr_{0:s}{1:s}_m{2:d}".format(intf,heli,grbin))
-                    fMass[grbin]  = outf.Get("fn_m{2:d}_{0:s}{1:s}".format(intf,heli,grbin)).GetChisquare()
-    
+                    #fMass[grbin]  = outf.Get("fn_m{2:d}_{0:s}{1:s}".format(intf,heli,grbin)).GetChisquare()
+                    fMass[grbin]  = outf.Get("fitR_m{2:d}_{0:s}{1:s}".format(intf,heli,grbin)).Chi2()
+
                     if grbin == 400:
                         grMass[grbin].Draw("ap")
                         r.gStyle.SetOptStat(0)
@@ -164,8 +165,9 @@ for emutype in ["e","mu"]:
                 leg = r.TLegend(0.5,0.7,0.95,0.9)
                 for extrabin in extragrbins:
                     grMass[extrabin] = outf.Get("gr_{0:s}{1:s}_m{2:d}".format(intf,heli,extrabin))
-                    fMass[extrabin]  = outf.Get("fn_m{2:d}_{0:s}{1:s}".format(intf,heli,extrabin)).GetChisquare()
-    
+                    # fMass[extrabin]  = outf.Get("fn_m{2:d}_{0:s}{1:s}".format(intf,heli,extrabin)).GetChisquare()
+                    fMass[extrabin]  = outf.Get("fitR_m{2:d}_{0:s}{1:s}".format(intf,heli,grbin)).Chi2()
+
                     if extragrbins.index(extrabin) == 0:
                         grMass[extrabin].Draw("ap")
                         r.gStyle.SetOptStat(0)
@@ -187,7 +189,7 @@ for emutype in ["e","mu"]:
                 can.Modified()
                 can.Update()
                 r.gPad.Update()
-    
+
                 # raw_input("continue")
                 for ftype in ["png","C","pdf","eps"]:
                     can.SaveAs("~/public/forCIAnalysis/scanmass_2{3:s}_{1:s}_{2:s}_{4:s}_{5:s}_{6:s}_des_{7:s}.{0:s}".format(ftype,

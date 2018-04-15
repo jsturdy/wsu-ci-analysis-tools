@@ -18,8 +18,8 @@ from nesteddict import nesteddict as ndict
 import json
 
 antypes=[
-    ["E","e","Ele","/store/user/sturdy/ZprimeAnalysis/histosHLTWeighted/histosZprimeEleEle"],
-    ["Mu","mu","Mu","/store/user/sturdy/ZprimeAnalysis/histosCutHLT/histosZprimeMuMu"]
+    ["E","e","Ele","/store/user/sturdy/ZprimeAnalysis/histosHLTWeighted"],
+    ["Mu","mu","Mu","/store/user/sturdy/ZprimeAnalysis/histosCutHLT"]
     ]
 form="output_CITo2{0:s}_M{1:d}_CUETP8M1_Lam{2:s}TeV{3:s}{4:s}_13TeV_Pythia8_Corrected-v4_ntuple.root"
 dyform="output_DYTo2{0:s}_M{1:d}_CUETP8M1_13TeV_Pythia8_Corrected-v3_ntuple.root"
