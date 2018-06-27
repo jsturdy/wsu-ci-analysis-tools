@@ -2,15 +2,25 @@
 
 import sys, os
 import argparse
+
+def par_list(value):
+    values = value.split()
+    if len(values) != 3:
+        raise argparse.ArgumentError
+    values = map(float, values)
+    return values
+
 parser = argparse.ArgumentParser()
 #parser.add_argument("-inFile", help="Input file", type=str)
 parser.add_argument("-flav", help="Lepton flavor", type=str)
 parser.add_argument("-unc",  help="Uncertainty", type=str, default="nominal")
 parser.add_argument("-eta",  help="Eta bin", type=str, default="inc")
 parser.add_argument("-cs",   help="CS bin", type=str, default="inc")
-parser.add_argument("-d",    help="debug", action='store_true')
+parser.add_argument("-d","--debug", dest="debug", help="debug", action='store_true')
 ## need options and flags here :)
-parser.add_argument('--constraint', help="constraint for paramter (par up down)", nargs=3, action='append')
+# parser.add_argument('--constraint', help="constraint for paramter (par up down)", nargs=3, action='append', type=float)
+parser.add_argument('--constraint', help="constraint for paramter (par up down)", action='append', type=par_list)
+parser.add_argument('--fitrange',   help="fit range (low, high)", nargs=2, type=float,default=(0.5,125000.))
 parser.add_argument("--fixdes",     help="fix destructive fit parameters based on constructive", action='store_true')
 parser.add_argument("--fixinf",     help="fix infinity fit parameter", action='store_true')
 # fix 2nd parameter for destructive fits
@@ -19,8 +29,13 @@ parser.add_argument("--fixinf",     help="fix infinity fit parameter", action='s
 # emutype
 
 args        = parser.parse_args()
-debug       = args.d
-constraints = args.constraint
+debug       = args.debug
+constraints = {"p{0:d}".format(int(key)): None for key in range(3)}
+
+if args.constraint:
+    constraints = {"p{0:d}".format(int(key)): (low,high) for [key,low,high] in args.constraint}
+print(constraints)
+
 from fitUtils import doFitOnGraph
 
 import ROOT as r
@@ -46,6 +61,8 @@ uncertainties = {
     "nominal":   "CSMassBinned",
     "scaleup":   "CSMassUpBinned",
     "scaledown": "CSMassDownBinned",
+    "pileup":    "CSMassPUUpBinned",
+    "piledown":  "CSMassPUDownBinned",
     ## muon only
     "smeared":   "CSSmearedMassBinned",
     "muonid":    "CSMassMuIDBinned",
@@ -59,11 +76,23 @@ etabin = args.eta
 csbin  = args.cs
 unc    = args.unc
 histbin = (etabins.index(etabin)*3)+csbins.index(csbin)+1
-debug = args.d
 
-desp1type = "float"
-if args.fixdes or args.fixinf:
-    desp1type = "fixed"
+filefmt  = "2{0:s}_{1:s}_{2:s}_{3:s}_{4:s}_{5:s}{6:s}"
+modifier = ""
+if args.fixdes:
+    modifier += "_fixdes"
+    pass
+if args.fixinf:
+    modifier += "_fixinf"
+    pass
+if constraints["p0"]:
+    modifier += "_limitp0"
+    pass
+if constraints["p1"]:
+    modifier += "_limitp1"
+    pass
+if constraints["p2"]:
+    modifier += "_limitp2"
     pass
 
 if csbin not in csbins:
@@ -87,25 +116,24 @@ for emutype in ["e","mu"]:
     xerrs=np.array(lerrs,dtype='float64')
     # emutype = "mu"
     with open("ciparametrization_2{0:s}_{1:s}_{2:s}_{3:s}.json".format(emutype,unc,etabin,csbin),"r") as js:
-        print("cito2{0:s}_{1:s}_{2:s}_{3:s}_parametrization_des_{4:s}.root".format(emutype,unc,etabin,csbin,desp1type))
+        print("cito2{0:s}_{1:s}_{2:s}_{3:s}_parametrization{4:s}.root".format(emutype,unc,etabin,csbin,modifier))
         params = json.load(js)
-        outf = r.TFile("cito2{0:s}_{1:s}_{2:s}_{3:s}_parametrization_des_{4:s}.root".format(emutype,unc,etabin,csbin,desp1type),
+        outf = r.TFile("cito2{0:s}_{1:s}_{2:s}_{3:s}_parametrization{4:s}.root".format(emutype,unc,etabin,csbin,modifier),
                        "recreate")
         for heli in helis:
             conFitPar = []
             for intf in intfs:
-                # print("{0:s}{1:s}".format(intf,heli))
                 print("Fitting primary bins for the limits")
                 for i,point in enumerate(supers[:-1]):
                     doFitOnGraph(params, lvals, xvals, xerrs,
                                  intf, heli, i, point, outf, conFitPar,
-                                 args.fixinf, args.fixdes)
+                                 args.fixinf, args.fixdes, constraints, args.fitrange)
                     pass
                 print("Fitting extra bins for the mass scan")
                 for i,point in enumerate(extragrbins):
                     doFitOnGraph(params, lvals, xvals, xerrs,
                                  intf, heli, 1, point, outf, conFitPar,
-                                 args.fixinf, args.fixdes)
+                                 args.fixinf, args.fixdes, constraints, args.fitrange)
                     pass
                 # raw_input("continue")
                 pass
@@ -154,10 +182,9 @@ for emutype in ["e","mu"]:
                 r.gPad.Update()
 
                 for ftype in ["png","C","pdf","eps"]:
-                    can.SaveAs("~/public/forCIAnalysis/params_2{3:s}_{1:s}_{2:s}_{4:s}_{5:s}_{6:s}_des_{7:s}.{0:s}".format(ftype,
-                                                                                                                           intf,heli,emutype,
-                                                                                                                           unc,etabin,csbin,
-                                                                                                                           desp1type))
+                    can.SaveAs("~/public/forCIAnalysis/params_{1:s}.{0:s}".format(ftype,filefmt.format(emutype,intf,heli,
+                                                                                                       unc,etabin,csbin,
+                                                                                                       modifier)))
                     pass
                 can.Clear()
                 can.Update()
@@ -192,10 +219,9 @@ for emutype in ["e","mu"]:
 
                 # raw_input("continue")
                 for ftype in ["png","C","pdf","eps"]:
-                    can.SaveAs("~/public/forCIAnalysis/scanmass_2{3:s}_{1:s}_{2:s}_{4:s}_{5:s}_{6:s}_des_{7:s}.{0:s}".format(ftype,
-                                                                                                                             intf,heli,emutype,
-                                                                                                                             unc,etabin,csbin,
-                                                                                                                             desp1type))
+                    can.SaveAs("~/public/forCIAnalysis/scanmass_{1:s}.{0:s}".format(ftype,filefmt.format(emutype,intf,heli,
+                                                                                                         unc,etabin,csbin,
+                                                                                                         modifier)))
                     pass
                 pass
             pass
