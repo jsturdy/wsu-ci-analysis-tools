@@ -17,9 +17,13 @@ import numpy as np
 from nesteddict import nesteddict as ndict
 import json
 
+"/store/user/jschulte/ZprimeAnalysis/histos/histosZprimeEleEle"
+"/store/user/jschulte/ZprimeAnalysis/histos/histosZprimeMuMu"
 antypes=[
-    ["E","e","Ele","/store/user/sturdy/ZprimeAnalysis/histosHLTWeighted"],
-    ["Mu","mu","Mu","/store/user/sturdy/ZprimeAnalysis/histosCutHLT"]
+    # ["E","e","Ele","/store/user/sturdy/ZprimeAnalysis/histosHLTWeighted"],
+    # ["Mu","mu","Mu","/store/user/sturdy/ZprimeAnalysis/histosCutHLT"]
+    ["E","e","Ele", "/store/user/jschulte/ZprimeAnalysis/histos"],
+    ["Mu","mu","Mu","/store/user/jschulte/ZprimeAnalysis/histos"]
     ]
 form="output_CITo2{0:s}_M{1:d}_CUETP8M1_Lam{2:s}TeV{3:s}{4:s}_13TeV_Pythia8_Corrected-v4_ntuple.root"
 dyform="output_DYTo2{0:s}_M{1:d}_CUETP8M1_13TeV_Pythia8_Corrected-v3_ntuple.root"
@@ -37,6 +41,8 @@ uncertainties = {
     "nominal":   "CSMassBinned",
     "scaleup":   "CSMassUpBinned",
     "scaledown": "CSMassDownBinned",
+    "pileup":    "CSMassPUUpBinned",
+    "piledown":  "CSMassPUDownBinned",
     ## muon only
     "smeared":   "CSSmearedMassBinned",
     "muonid":    "CSMassMuIDBinned",
@@ -65,7 +71,7 @@ if unc not in uncertainties:
 for antype in antypes:
     muonlyuncs = ["muonid", "smeared"]
     if unc in muonlyuncs and antype[2] == "Ele":
-        print("Not processing uncertainty '{0:s}' for leptonn flavour '{1:s}'".format(unc,antype[2]))
+        print("Not processing uncertainty '{0:s}' for lepton flavour '{1:s}'".format(unc,antype[2]))
         continue
     base="root://cmseos.fnal.gov//{1:s}/histosZprime{0:s}{0:s}/".format(antype[2],antype[3])
     params = ndict()
@@ -168,7 +174,7 @@ for antype in antypes:
                             val   = hist.Integral(bval,upval)
                             val2  = hist.IntegralAndError(bval,upval,err)
                             print("{0:s} {1:d} {2:d} {3:d} {4:2.4f} {5:2.4f}".format(lval,point,bval,upval,val,err))
-                            out.write("{0:s} {1:d} {2:d} {3:d} {4:2.4f}\n".format(lval,point,bval,upval,val))
+                            out.write("{0:s} {1:d} {2:d} {3:d} {4:2.4f} {5:2.4f}\n".format(lval,point,bval,upval,val,err))
                             params["{0:s}{1:s}_{2:d}GeV".format(intf,heli,point)][i] = val
                             params["{0:s}{1:s}_{2:d}GeV_err".format(intf,heli,point)][i] = err
                             pass
@@ -182,7 +188,7 @@ for antype in antypes:
                             val   = hist.Integral(bval,upval)
                             val2  = hist.IntegralAndError(bval,upval,err)
                             print("{0:s} {1:d} {2:d} {3:d} {4:2.4f} {5:2.4f}".format(lval,point,bval,upval,val,err))
-                            out.write("{0:s} {1:d} {2:d} {3:d} {4:2.4f}\n".format(lval,point,bval,upval,val))
+                            out.write("{0:s} {1:d} {2:d} {3:d} {4:2.4f} {5:2.4f}\n".format(lval,point,bval,upval,val,err))
                             params["{0:s}{1:s}_{2:d}GeV".format(intf,heli,point)][i]     = val
                             params["{0:s}{1:s}_{2:d}GeV_err".format(intf,heli,point)][i] = err
                             pass
